@@ -1,9 +1,12 @@
 import click
 import copy
+from datetime import datetime
 import httpx
 import ijson
 import json
 import llm
+import os
+from pathlib import Path
 from pydantic import Field
 from typing import Optional
 
@@ -81,6 +84,94 @@ THINKING_BUDGET_MODELS = {
 }
 
 NO_VISION_MODELS = {"gemma-3-1b-it", "gemma-3n-e4b-it"}
+
+
+class OAuthError(Exception):
+    """Raised when OAuth token operations fail"""
+    pass
+
+
+def get_oauth_token():
+    """Try to read OAuth token from ~/.gemini/oauth_creds.json.
+
+    Checks token expiration and raises error if expired.
+
+    Returns:
+        Dictionary with 'token' and 'is_vertex_ai' keys, or None if no OAuth file exists
+        - token: Access token string
+        - is_vertex_ai: Boolean indicating if token has cloud-platform scope for Vertex AI
+
+    Raises:
+        OAuthError: If token is expired
+    """
+    oauth_path = Path.home() / ".gemini" / "oauth_creds.json"
+    if not oauth_path.exists():
+        return None
+
+    try:
+        with open(oauth_path, "r") as f:
+            creds = json.load(f)
+    except (json.JSONDecodeError, IOError):
+        return None
+
+    # Check if token is expired
+    # Handle both expires_at (seconds) and expiry_date (milliseconds)
+    expires_at = creds.get("expires_at")
+    expiry_date = creds.get("expiry_date")
+
+    if expires_at is not None or expiry_date is not None:
+        # Convert expiry_date from milliseconds to seconds if needed
+        if expires_at is None and expiry_date is not None:
+            expires_at = expiry_date / 1000
+
+        current_time = datetime.now().timestamp()
+        if current_time >= expires_at:
+            raise OAuthError(
+                "OAuth token is expired. "
+                "Please reauthenticate using: gemini auth"
+            )
+
+    # Try common OAuth token field names
+    token = creds.get("access_token") or creds.get("token")
+    if not token:
+        return None
+
+    # Check if this is a Vertex AI token (has cloud-platform scope)
+    scopes = creds.get("scope", "")
+    is_vertex_ai = "https://www.googleapis.com/auth/cloud-platform" in scopes
+
+    return {"token": token, "is_vertex_ai": is_vertex_ai}
+
+
+def get_auth_headers_for_cli(key=None):
+    """Standalone helper to get auth headers for CLI commands.
+
+    Returns either API key headers or OAuth Bearer token headers.
+    Falls back to OAuth token if API key is not available.
+    """
+    # Try to get API key first
+    try:
+        api_key = llm.get_key(key, "gemini", "LLM_GEMINI_KEY")
+        if api_key:
+            return {"x-goog-api-key": api_key}
+    except:
+        pass
+
+    # Fall back to OAuth token
+    try:
+        oauth_info = get_oauth_token()
+        if oauth_info:
+            return {"Authorization": f"Bearer {oauth_info['token']}"}
+    except OAuthError as e:
+        # Convert OAuthError to ClickException for CLI
+        raise click.ClickException(str(e))
+
+    # If neither is available, raise error
+    raise click.ClickException(
+        "You must set the LLM_GEMINI_KEY environment variable, use --key, "
+        "or have OAuth credentials at ~/.gemini/oauth_creds.json"
+    )
+
 
 ATTACHMENT_TYPES = {
     # Text
@@ -325,6 +416,70 @@ class _SharedGemini:
         if can_vision:
             self.attachment_types = ATTACHMENT_TYPES
 
+    def get_oauth_info(self):
+        """Get OAuth info if available.
+
+        Returns:
+            Dictionary with 'token' and 'is_vertex_ai' keys, or None
+        """
+        try:
+            oauth_info = get_oauth_token()
+            return oauth_info
+        except OAuthError:
+            return None
+
+    def get_auth_headers(self, key=None):
+        """Get appropriate authentication headers for API calls.
+
+        Returns either API key headers or OAuth Bearer token headers.
+        Falls back to OAuth token if API key is not available.
+        """
+        try:
+            # Try to get API key first
+            api_key = self.get_key(key)
+            # Check if this is the OAuth placeholder
+            if api_key == "oauth":
+                # Fall back to OAuth
+                try:
+                    oauth_info = get_oauth_token()
+                    if oauth_info:
+                        return {"Authorization": f"Bearer {oauth_info['token']}"}
+                except OAuthError as e:
+                    raise llm.ModelError(str(e))
+            return {"x-goog-api-key": api_key}
+        except llm.NeedsKeyException:
+            # Fall back to OAuth token
+            try:
+                oauth_info = get_oauth_token()
+                if oauth_info:
+                    return {"Authorization": f"Bearer {oauth_info['token']}"}
+            except OAuthError as e:
+                # Convert OAuthError to ModelError for better error messages
+                raise llm.ModelError(str(e))
+            # Re-raise NeedsKeyException if neither is available
+            raise
+
+    def get_api_url(self, key=None):
+        """Get appropriate API URL based on authentication type.
+
+        Returns Vertex AI URL if using Vertex AI OAuth, otherwise returns public Gemini API URL.
+        """
+        # Check if using Vertex AI OAuth
+        oauth_info = self.get_oauth_info()
+        if oauth_info and oauth_info.get("is_vertex_ai"):
+            # Get project and location from environment
+            project = os.environ.get("GOOGLE_CLOUD_PROJECT")
+            if not project:
+                raise llm.ModelError(
+                    "Using Vertex AI OAuth requires GOOGLE_CLOUD_PROJECT environment variable. "
+                    "Set it with: export GOOGLE_CLOUD_PROJECT=your-project-id"
+                )
+            location = os.environ.get("GOOGLE_CLOUD_LOCATION", "us-central1")
+            return f"https://{location}-aiplatform.googleapis.com/v1/projects/{project}/locations/{location}/publishers/google/models/{self.gemini_model_id}:streamGenerateContent"
+
+        # Use public Gemini API
+        return f"https://generativelanguage.googleapis.com/v1beta/models/{self.gemini_model_id}:streamGenerateContent"
+
     def build_messages(self, prompt, conversation):
         messages = []
         if conversation:
@@ -527,8 +682,27 @@ class _SharedGemini:
 
 
 class GeminiPro(_SharedGemini, llm.KeyModel):
+    def get_key(self, explicit_key=None):
+        """Override to return placeholder when OAuth is available"""
+        try:
+            # Try parent's get_key first
+            return super().get_key(explicit_key)
+        except llm.NeedsKeyException:
+            # Check if OAuth token is available
+            try:
+                oauth_info = get_oauth_token()
+                if oauth_info:
+                    # Return placeholder to satisfy llm framework
+                    # Actual auth headers are generated in get_auth_headers()
+                    return "oauth"
+            except OAuthError as e:
+                # Re-raise as NeedsKeyException with the OAuth error message
+                raise llm.NeedsKeyException(str(e))
+            # Re-raise if no OAuth available
+            raise
+
     def execute(self, prompt, stream, response, conversation, key):
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/{self.gemini_model_id}:streamGenerateContent"
+        url = self.get_api_url(key)
         gathered = []
         body = self.build_request_body(prompt, conversation)
 
@@ -536,7 +710,7 @@ class GeminiPro(_SharedGemini, llm.KeyModel):
             "POST",
             url,
             timeout=prompt.options.timeout,
-            headers={"x-goog-api-key": self.get_key(key)},
+            headers=self.get_auth_headers(key),
             json=body,
         ) as http_response:
             events = ijson.sendable_list()
@@ -546,7 +720,15 @@ class GeminiPro(_SharedGemini, llm.KeyModel):
                 if events:
                     for event in events:
                         if isinstance(event, dict) and "error" in event:
-                            raise llm.ModelError(event["error"]["message"])
+                            error_msg = event["error"]["message"]
+                            # Provide helpful message for common OAuth scope issue
+                            if "insufficient authentication scopes" in error_msg.lower():
+                                error_msg = (
+                                    f"{error_msg}\n\n"
+                                    "This usually means your OAuth token doesn't have the required scopes. "
+                                    "Please reauthenticate using: gemini auth"
+                                )
+                            raise llm.ModelError(error_msg)
                         try:
                             yield from self.process_candidates(
                                 event["candidates"], response
@@ -562,8 +744,27 @@ class GeminiPro(_SharedGemini, llm.KeyModel):
 
 
 class AsyncGeminiPro(_SharedGemini, llm.AsyncKeyModel):
+    def get_key(self, explicit_key=None):
+        """Override to return placeholder when OAuth is available"""
+        try:
+            # Try parent's get_key first
+            return super().get_key(explicit_key)
+        except llm.NeedsKeyException:
+            # Check if OAuth token is available
+            try:
+                oauth_info = get_oauth_token()
+                if oauth_info:
+                    # Return placeholder to satisfy llm framework
+                    # Actual auth headers are generated in get_auth_headers()
+                    return "oauth"
+            except OAuthError as e:
+                # Re-raise as NeedsKeyException with the OAuth error message
+                raise llm.NeedsKeyException(str(e))
+            # Re-raise if no OAuth available
+            raise
+
     async def execute(self, prompt, stream, response, conversation, key):
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/{self.gemini_model_id}:streamGenerateContent"
+        url = self.get_api_url(key)
         gathered = []
         body = self.build_request_body(prompt, conversation)
 
@@ -572,7 +773,7 @@ class AsyncGeminiPro(_SharedGemini, llm.AsyncKeyModel):
                 "POST",
                 url,
                 timeout=prompt.options.timeout,
-                headers={"x-goog-api-key": self.get_key(key)},
+                headers=self.get_auth_headers(key),
                 json=body,
             ) as http_response:
                 events = ijson.sendable_list()
@@ -582,7 +783,15 @@ class AsyncGeminiPro(_SharedGemini, llm.AsyncKeyModel):
                     if events:
                         for event in events:
                             if isinstance(event, dict) and "error" in event:
-                                raise llm.ModelError(event["error"]["message"])
+                                error_msg = event["error"]["message"]
+                                # Provide helpful message for common OAuth scope issue
+                                if "insufficient authentication scopes" in error_msg.lower():
+                                    error_msg = (
+                                        f"{error_msg}\n\n"
+                                        "This usually means your OAuth token doesn't have the required scopes. "
+                                        "Please reauthenticate using: gemini auth"
+                                    )
+                                raise llm.ModelError(error_msg)
                             try:
                                 for chunk in self.process_candidates(
                                     event["candidates"], response
@@ -623,10 +832,60 @@ class GeminiEmbeddingModel(llm.EmbeddingModel):
         self.gemini_model_id = gemini_model_id
         self.truncate = truncate
 
+    def get_key(self, explicit_key=None):
+        """Override to return placeholder when OAuth is available"""
+        try:
+            # Try parent's get_key first
+            return super().get_key(explicit_key)
+        except llm.NeedsKeyException:
+            # Check if OAuth token is available
+            try:
+                oauth_info = get_oauth_token()
+                if oauth_info:
+                    # Return placeholder to satisfy llm framework
+                    # Actual auth headers are generated in get_auth_headers()
+                    return "oauth"
+            except OAuthError as e:
+                # Re-raise as NeedsKeyException with the OAuth error message
+                raise llm.NeedsKeyException(str(e))
+            # Re-raise if no OAuth available
+            raise
+
+    def get_auth_headers(self, key=None):
+        """Get appropriate authentication headers for API calls.
+
+        Returns either API key headers or OAuth Bearer token headers.
+        Falls back to OAuth token if API key is not available.
+        """
+        try:
+            # Try to get API key first
+            api_key = self.get_key(key)
+            # Check if this is the OAuth placeholder
+            if api_key == "oauth":
+                # Fall back to OAuth
+                try:
+                    oauth_info = get_oauth_token()
+                    if oauth_info:
+                        return {"Authorization": f"Bearer {oauth_info['token']}"}
+                except OAuthError as e:
+                    raise llm.ModelError(str(e))
+            return {"x-goog-api-key": api_key}
+        except llm.NeedsKeyException:
+            # Fall back to OAuth token
+            try:
+                oauth_info = get_oauth_token()
+                if oauth_info:
+                    return {"Authorization": f"Bearer {oauth_info['token']}"}
+            except OAuthError as e:
+                # Convert OAuthError to ModelError for better error messages
+                raise llm.ModelError(str(e))
+            # Re-raise NeedsKeyException if neither is available
+            raise
+
     def embed_batch(self, items):
         headers = {
             "Content-Type": "application/json",
-            "x-goog-api-key": self.get_key(),
+            **self.get_auth_headers(),
         }
         data = {
             "requests": [
@@ -675,13 +934,9 @@ def register_commands(cli):
 
         llm gemini models --method generateContent --method embedContent
         """
-        key = llm.get_key(key, "gemini", "LLM_GEMINI_KEY")
-        if not key:
-            raise click.ClickException(
-                "You must set the LLM_GEMINI_KEY environment variable or use --key"
-            )
+        auth_headers = get_auth_headers_for_cli(key)
         url = f"https://generativelanguage.googleapis.com/v1beta/models"
-        response = httpx.get(url, headers={"x-goog-api-key": key})
+        response = httpx.get(url, headers=auth_headers)
         response.raise_for_status()
         models = response.json()["models"]
         if methods:
@@ -698,9 +953,10 @@ def register_commands(cli):
     @click.option("--key", help="API key to use")
     def files(key):
         "List of files uploaded to the Gemini API"
-        key = llm.get_key(key, "gemini", "LLM_GEMINI_KEY")
+        auth_headers = get_auth_headers_for_cli(key)
         response = httpx.get(
-            f"https://generativelanguage.googleapis.com/v1beta/files?key={key}",
+            "https://generativelanguage.googleapis.com/v1beta/files",
+            headers=auth_headers,
         )
         response.raise_for_status()
         if "files" in response.json():
