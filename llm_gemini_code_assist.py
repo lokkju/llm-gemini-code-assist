@@ -10,6 +10,9 @@ from pathlib import Path
 from pydantic import Field
 from typing import Optional
 
+from google.oauth2.credentials import Credentials
+from google.auth.transport.requests import Request as GoogleAuthRequest
+
 SAFETY_SETTINGS = [
     {
         "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
@@ -91,18 +94,14 @@ class OAuthError(Exception):
     pass
 
 
-def get_oauth_token():
-    """Try to read OAuth token from ~/.gemini/oauth_creds.json.
-
-    Checks token expiration and raises error if expired.
+def get_oauth_credentials():
+    """Load OAuth credentials from ~/.gemini/oauth_creds.json.
 
     Returns:
-        Dictionary with 'token' and 'is_vertex_ai' keys, or None if no OAuth file exists
-        - token: Access token string
-        - is_vertex_ai: Boolean indicating if token has cloud-platform scope for Vertex AI
+        google.oauth2.credentials.Credentials object, or None if not found
 
     Raises:
-        OAuthError: If token is expired
+        OAuthError: If credentials can't be loaded or refreshed
     """
     oauth_path = Path.home() / ".gemini" / "oauth_creds.json"
     if not oauth_path.exists():
@@ -110,66 +109,120 @@ def get_oauth_token():
 
     try:
         with open(oauth_path, "r") as f:
-            creds = json.load(f)
+            creds_data = json.load(f)
     except (json.JSONDecodeError, IOError):
         return None
 
-    # Check if token is expired
-    # Handle both expires_at (seconds) and expiry_date (milliseconds)
-    expires_at = creds.get("expires_at")
-    expiry_date = creds.get("expiry_date")
+    # Create Credentials object
+    scopes = creds_data.get("scope", "")
+    credentials = Credentials(
+        token=creds_data.get("access_token"),
+        refresh_token=creds_data.get("refresh_token"),
+        token_uri="https://oauth2.googleapis.com/token",
+        client_id=creds_data.get("client_id"),
+        client_secret=creds_data.get("client_secret"),
+        scopes=scopes.split() if scopes else None,
+    )
 
-    if expires_at is not None or expiry_date is not None:
-        # Convert expiry_date from milliseconds to seconds if needed
-        if expires_at is None and expiry_date is not None:
-            expires_at = expiry_date / 1000
-
-        current_time = datetime.now().timestamp()
-        if current_time >= expires_at:
+    # Refresh if expired
+    if credentials.expired and credentials.refresh_token:
+        try:
+            credentials.refresh(GoogleAuthRequest())
+            # Optionally save refreshed token back to file
+            creds_data["access_token"] = credentials.token
+            creds_data["expiry_date"] = int(credentials.expiry.timestamp() * 1000) if credentials.expiry else None
+            with open(oauth_path, "w") as f:
+                json.dump(creds_data, f, indent=2)
+        except Exception as e:
             raise OAuthError(
-                "OAuth token is expired. "
+                f"Failed to refresh OAuth token: {e}. "
                 "Please reauthenticate using: gemini auth"
             )
 
-    # Try common OAuth token field names
-    token = creds.get("access_token") or creds.get("token")
-    if not token:
-        return None
+    return credentials
 
-    # Check if this is a Vertex AI token (has cloud-platform scope)
-    scopes = creds.get("scope", "")
-    is_vertex_ai = "https://www.googleapis.com/auth/cloud-platform" in scopes
 
-    return {"token": token, "is_vertex_ai": is_vertex_ai}
+# Code Assist API helper - cached project assignment
+_code_assist_project_cache = {}
+
+
+def get_code_assist_project(credentials):
+    """Get project assignment from Code Assist API (cached per user).
+
+    Args:
+        credentials: google.oauth2.credentials.Credentials object
+
+    Returns:
+        tuple: (project_id, user_tier) or (None, None) on error
+    """
+    # Cache key based on token (first 20 chars to avoid storing full token)
+    cache_key = credentials.token[:20] if credentials.token else None
+    if cache_key and cache_key in _code_assist_project_cache:
+        return _code_assist_project_cache[cache_key]
+
+    # Ensure token is valid
+    if not credentials.valid and credentials.refresh_token:
+        try:
+            credentials.refresh(GoogleAuthRequest())
+        except Exception:
+            pass
+
+    if not credentials.valid:
+        return None, None
+
+    # Call loadCodeAssist endpoint
+    url = "https://cloudcode-pa.googleapis.com/v1internal:loadCodeAssist"
+    headers = {
+        "Authorization": f"Bearer {credentials.token}",
+        "Content-Type": "application/json",
+    }
+    body = {
+        "cloudaicompanionProject": os.environ.get("GOOGLE_CLOUD_PROJECT"),
+        "metadata": {
+            "ideType": "IDE_UNSPECIFIED",
+            "platform": "PLATFORM_UNSPECIFIED",
+            "pluginType": "GEMINI",
+        }
+    }
+
+    try:
+        response = httpx.post(url, headers=headers, json=body, timeout=30.0)
+        response.raise_for_status()
+        data = response.json()
+
+        project_id = data.get("cloudaicompanionProject")
+        user_tier = data.get("currentTier", {}).get("id")
+
+        # Cache the result
+        if cache_key and project_id:
+            _code_assist_project_cache[cache_key] = (project_id, user_tier)
+
+        return project_id, user_tier
+    except Exception:
+        return None, None
 
 
 def get_auth_headers_for_cli(key=None):
-    """Standalone helper to get auth headers for CLI commands.
+    """Get OAuth authentication headers for CLI commands.
 
-    Returns either API key headers or OAuth Bearer token headers.
-    Falls back to OAuth token if API key is not available.
+    Returns OAuth Bearer token headers from ~/.gemini/oauth_creds.json.
     """
-    # Try to get API key first
     try:
-        api_key = llm.get_key(key, "gemini", "LLM_GEMINI_KEY")
-        if api_key:
-            return {"x-goog-api-key": api_key}
-    except:
-        pass
-
-    # Fall back to OAuth token
-    try:
-        oauth_info = get_oauth_token()
-        if oauth_info:
-            return {"Authorization": f"Bearer {oauth_info['token']}"}
+        credentials = get_oauth_credentials()
+        if credentials:
+            # Ensure token is valid
+            if not credentials.valid and credentials.refresh_token:
+                try:
+                    credentials.refresh(GoogleAuthRequest())
+                except Exception:
+                    pass
+            return {"Authorization": f"Bearer {credentials.token}"}
     except OAuthError as e:
-        # Convert OAuthError to ClickException for CLI
         raise click.ClickException(str(e))
 
-    # If neither is available, raise error
+    # If OAuth not available, raise error
     raise click.ClickException(
-        "You must set the LLM_GEMINI_KEY environment variable, use --key, "
-        "or have OAuth credentials at ~/.gemini/oauth_creds.json"
+        "OAuth credentials not found. Please authenticate using: gemini auth"
     )
 
 
@@ -210,8 +263,8 @@ ATTACHMENT_TYPES = {
 
 @llm.hookimpl
 def register_models(register):
-    # Register both sync and async versions of each model
-    for model_id in (
+    # Register both sync and async versions of each model with gemini-ca/ prefix
+    for gemini_model_id in (
         "gemini-pro",
         "gemini-1.5-pro-latest",
         "gemini-1.5-flash-latest",
@@ -261,10 +314,13 @@ def register_models(register):
         "gemini-2.5-flash-preview-09-2025",
         "gemini-2.5-flash-lite-preview-09-2025",
     ):
-        can_google_search = model_id in GOOGLE_SEARCH_MODELS
-        can_thinking_budget = model_id in THINKING_BUDGET_MODELS
-        can_vision = model_id not in NO_VISION_MODELS
-        can_schema = "flash-thinking" not in model_id and "gemma-3" not in model_id
+        # Add gemini-ca/ prefix for user-facing model ID
+        model_id = f"gemini-ca/{gemini_model_id}"
+
+        can_google_search = gemini_model_id in GOOGLE_SEARCH_MODELS
+        can_thinking_budget = gemini_model_id in THINKING_BUDGET_MODELS
+        can_vision = gemini_model_id not in NO_VISION_MODELS
+        can_schema = "flash-thinking" not in gemini_model_id and "gemma-3" not in gemini_model_id
         register(
             GeminiPro(
                 model_id,
@@ -316,8 +372,8 @@ def cleanup_schema(schema, in_properties=False):
 
 
 class _SharedGemini:
-    needs_key = "gemini"
-    key_env_var = "LLM_GEMINI_KEY"
+    needs_key = None  # OAuth only, no API key support
+    key_env_var = None
     can_stream = True
     supports_schema = True
     supports_tools = True
@@ -404,8 +460,15 @@ class _SharedGemini:
         can_thinking_budget=False,
         can_schema=False,
     ):
-        self.model_id = "gemini/{}".format(gemini_model_id)
-        self.gemini_model_id = gemini_model_id
+        # For Code Assist, model_id has gemini-ca/ prefix, but we need the raw gemini model ID for API calls
+        if gemini_model_id.startswith("gemini-ca/"):
+            self.model_id = gemini_model_id
+            self.gemini_model_id = gemini_model_id.replace("gemini-ca/", "")
+        else:
+            # Fallback for direct initialization
+            self.model_id = "gemini-ca/{}".format(gemini_model_id)
+            self.gemini_model_id = gemini_model_id
+
         self.can_google_search = can_google_search
         self.supports_schema = can_schema
         if can_google_search:
@@ -428,57 +491,45 @@ class _SharedGemini:
         except OAuthError:
             return None
 
-    def get_auth_headers(self, key=None):
-        """Get appropriate authentication headers for API calls.
+    def get_credentials(self):
+        """Get OAuth credentials, caching them per instance."""
+        if not hasattr(self, '_credentials'):
+            self._credentials = get_oauth_credentials()
+            if not self._credentials:
+                raise llm.ModelError(
+                    "OAuth credentials not found. Please authenticate using: gemini auth"
+                )
+        return self._credentials
 
-        Returns either API key headers or OAuth Bearer token headers.
-        Falls back to OAuth token if API key is not available.
-        """
-        try:
-            # Try to get API key first
-            api_key = self.get_key(key)
-            # Check if this is the OAuth placeholder
-            if api_key == "oauth":
-                # Fall back to OAuth
-                try:
-                    oauth_info = get_oauth_token()
-                    if oauth_info:
-                        return {"Authorization": f"Bearer {oauth_info['token']}"}
-                except OAuthError as e:
-                    raise llm.ModelError(str(e))
-            return {"x-goog-api-key": api_key}
-        except llm.NeedsKeyException:
-            # Fall back to OAuth token
+    def get_project_id(self):
+        """Get Code Assist project ID, caching it per instance."""
+        if not hasattr(self, '_project_id'):
+            credentials = self.get_credentials()
+            project_id, user_tier = get_code_assist_project(credentials)
+            if not project_id:
+                raise llm.ModelError(
+                    "Failed to get project assignment from Code Assist API"
+                )
+            self._project_id = project_id
+            self._user_tier = user_tier
+        return self._project_id
+
+    def get_auth_headers(self, key=None):
+        """Get OAuth authentication headers for Code Assist API calls."""
+        credentials = self.get_credentials()
+
+        # Ensure token is valid
+        if not credentials.valid and credentials.refresh_token:
             try:
-                oauth_info = get_oauth_token()
-                if oauth_info:
-                    return {"Authorization": f"Bearer {oauth_info['token']}"}
-            except OAuthError as e:
-                # Convert OAuthError to ModelError for better error messages
-                raise llm.ModelError(str(e))
-            # Re-raise NeedsKeyException if neither is available
-            raise
+                credentials.refresh(GoogleAuthRequest())
+            except Exception as e:
+                raise llm.ModelError(f"Failed to refresh OAuth token: {e}")
+
+        return {"Authorization": f"Bearer {credentials.token}"}
 
     def get_api_url(self, key=None):
-        """Get appropriate API URL based on authentication type.
-
-        Returns Vertex AI URL if using Vertex AI OAuth, otherwise returns public Gemini API URL.
-        """
-        # Check if using Vertex AI OAuth
-        oauth_info = self.get_oauth_info()
-        if oauth_info and oauth_info.get("is_vertex_ai"):
-            # Get project and location from environment
-            project = os.environ.get("GOOGLE_CLOUD_PROJECT")
-            if not project:
-                raise llm.ModelError(
-                    "Using Vertex AI OAuth requires GOOGLE_CLOUD_PROJECT environment variable. "
-                    "Set it with: export GOOGLE_CLOUD_PROJECT=your-project-id"
-                )
-            location = os.environ.get("GOOGLE_CLOUD_LOCATION", "us-central1")
-            return f"https://{location}-aiplatform.googleapis.com/v1/projects/{project}/locations/{location}/publishers/google/models/{self.gemini_model_id}:streamGenerateContent"
-
-        # Use public Gemini API
-        return f"https://generativelanguage.googleapis.com/v1beta/models/{self.gemini_model_id}:streamGenerateContent"
+        """Get Code Assist API URL."""
+        return "https://cloudcode-pa.googleapis.com/v1internal:streamGenerateContent"
 
     def build_messages(self, prompt, conversation):
         messages = []
@@ -634,6 +685,24 @@ class _SharedGemini:
 
         return body
 
+    def wrap_code_assist_request(self, body, prompt):
+        """Wrap standard Gemini request in Code Assist API format."""
+        import uuid
+
+        return {
+            "model": self.gemini_model_id,
+            "project": self.get_project_id(),
+            "user_prompt_id": str(uuid.uuid4()),
+            "request": body
+        }
+
+    def unwrap_code_assist_response(self, event):
+        """Unwrap Code Assist API response to standard Gemini format."""
+        # Code Assist wraps the response in {"response": {...}}
+        if isinstance(event, dict) and "response" in event:
+            return event["response"]
+        return event
+
     def process_part(self, part, response):
         if "functionCall" in part:
             response.add_tool_call(
@@ -682,29 +751,33 @@ class _SharedGemini:
 
 
 class GeminiPro(_SharedGemini, llm.KeyModel):
+    needs_key = None  # OAuth only, no API key support
+
     def get_key(self, explicit_key=None):
-        """Override to return placeholder when OAuth is available"""
+        """OAuth-only authentication - no API keys supported."""
+        # Check if OAuth credentials are available
         try:
-            # Try parent's get_key first
-            return super().get_key(explicit_key)
-        except llm.NeedsKeyException:
-            # Check if OAuth token is available
-            try:
-                oauth_info = get_oauth_token()
-                if oauth_info:
-                    # Return placeholder to satisfy llm framework
-                    # Actual auth headers are generated in get_auth_headers()
-                    return "oauth"
-            except OAuthError as e:
-                # Re-raise as NeedsKeyException with the OAuth error message
-                raise llm.NeedsKeyException(str(e))
-            # Re-raise if no OAuth available
-            raise
+            credentials = get_oauth_credentials()
+            if credentials:
+                # Return placeholder to satisfy llm framework
+                # Actual auth headers are generated in get_auth_headers()
+                return "oauth"
+        except OAuthError as e:
+            # Re-raise as NeedsKeyException with the OAuth error message
+            raise llm.NeedsKeyException(str(e))
+
+        # No OAuth available
+        raise llm.NeedsKeyException(
+            "OAuth credentials not found. Please authenticate using: gemini auth"
+        )
 
     def execute(self, prompt, stream, response, conversation, key):
         url = self.get_api_url(key)
         gathered = []
-        body = self.build_request_body(prompt, conversation)
+
+        # Build standard request and wrap in Code Assist format
+        standard_body = self.build_request_body(prompt, conversation)
+        body = self.wrap_code_assist_request(standard_body, prompt)
 
         with httpx.stream(
             "POST",
@@ -721,22 +794,20 @@ class GeminiPro(_SharedGemini, llm.KeyModel):
                     for event in events:
                         if isinstance(event, dict) and "error" in event:
                             error_msg = event["error"]["message"]
-                            # Provide helpful message for common OAuth scope issue
-                            if "insufficient authentication scopes" in error_msg.lower():
-                                error_msg = (
-                                    f"{error_msg}\n\n"
-                                    "This usually means your OAuth token doesn't have the required scopes. "
-                                    "Please reauthenticate using: gemini auth"
-                                )
                             raise llm.ModelError(error_msg)
+
+                        # Unwrap Code Assist response
+                        unwrapped_event = self.unwrap_code_assist_response(event)
+
                         try:
                             yield from self.process_candidates(
-                                event["candidates"], response
+                                unwrapped_event["candidates"], response
                             )
                         except KeyError:
                             yield ""
-                        gathered.append(event)
+                        gathered.append(unwrapped_event)
                     events.clear()
+
         response.response_json = gathered[-1]
         resolved_model = gathered[-1]["modelVersion"]
         response.set_resolved_model(resolved_model)
@@ -744,29 +815,33 @@ class GeminiPro(_SharedGemini, llm.KeyModel):
 
 
 class AsyncGeminiPro(_SharedGemini, llm.AsyncKeyModel):
+    needs_key = None  # OAuth only, no API key support
+
     def get_key(self, explicit_key=None):
-        """Override to return placeholder when OAuth is available"""
+        """OAuth-only authentication - no API keys supported."""
+        # Check if OAuth credentials are available
         try:
-            # Try parent's get_key first
-            return super().get_key(explicit_key)
-        except llm.NeedsKeyException:
-            # Check if OAuth token is available
-            try:
-                oauth_info = get_oauth_token()
-                if oauth_info:
-                    # Return placeholder to satisfy llm framework
-                    # Actual auth headers are generated in get_auth_headers()
-                    return "oauth"
-            except OAuthError as e:
-                # Re-raise as NeedsKeyException with the OAuth error message
-                raise llm.NeedsKeyException(str(e))
-            # Re-raise if no OAuth available
-            raise
+            credentials = get_oauth_credentials()
+            if credentials:
+                # Return placeholder to satisfy llm framework
+                # Actual auth headers are generated in get_auth_headers()
+                return "oauth"
+        except OAuthError as e:
+            # Re-raise as NeedsKeyException with the OAuth error message
+            raise llm.NeedsKeyException(str(e))
+
+        # No OAuth available
+        raise llm.NeedsKeyException(
+            "OAuth credentials not found. Please authenticate using: gemini auth"
+        )
 
     async def execute(self, prompt, stream, response, conversation, key):
         url = self.get_api_url(key)
         gathered = []
-        body = self.build_request_body(prompt, conversation)
+
+        # Build standard request and wrap in Code Assist format
+        standard_body = self.build_request_body(prompt, conversation)
+        body = self.wrap_code_assist_request(standard_body, prompt)
 
         async with httpx.AsyncClient() as client:
             async with client.stream(
@@ -784,22 +859,19 @@ class AsyncGeminiPro(_SharedGemini, llm.AsyncKeyModel):
                         for event in events:
                             if isinstance(event, dict) and "error" in event:
                                 error_msg = event["error"]["message"]
-                                # Provide helpful message for common OAuth scope issue
-                                if "insufficient authentication scopes" in error_msg.lower():
-                                    error_msg = (
-                                        f"{error_msg}\n\n"
-                                        "This usually means your OAuth token doesn't have the required scopes. "
-                                        "Please reauthenticate using: gemini auth"
-                                    )
                                 raise llm.ModelError(error_msg)
+
+                            # Unwrap Code Assist response
+                            unwrapped_event = self.unwrap_code_assist_response(event)
+
                             try:
                                 for chunk in self.process_candidates(
-                                    event["candidates"], response
+                                    unwrapped_event["candidates"], response
                                 ):
                                     yield chunk
                             except KeyError:
                                 yield ""
-                            gathered.append(event)
+                            gathered.append(unwrapped_event)
                         events.clear()
         response.response_json = gathered[-1]
         self.set_usage(response)

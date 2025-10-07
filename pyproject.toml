@@ -1,25 +1,24 @@
 [project]
-name = "llm-gemini"
-version = "0.26"
-description = "LLM plugin to access Google's Gemini family of models"
+name = "llm-gemini-code-assist"
+version = "0.1"
+description = "LLM plugin to access Google's Gemini via Code Assist API with OAuth"
 readme = "README.md"
-authors = [{name = "Simon Willison"}]
+authors = [{name = "Simon Willison"}, {name = "Lokkju Brennan"}]
 license = "Apache-2.0"
 classifiers = []
 dependencies = [
     "llm>=0.27",
     "httpx",
-    "ijson"
+    "ijson",
+    "google-auth"
 ]
 
 [project.urls]
-Homepage = "https://github.com/simonw/llm-gemini"
-Changelog = "https://github.com/simonw/llm-gemini/releases"
-Issues = "https://github.com/simonw/llm-gemini/issues"
-CI = "https://github.com/simonw/llm-gemini/actions"
+Homepage = "https://github.com/lokkju/llm-gemini-code-assist"
+Issues = "https://github.com/lokkju/llm-gemini-code-assist/issues"
 
 [project.entry-points.llm]
-gemini = "llm_gemini"
+gemini_code_assist = "llm_gemini_code_assist"
 
 [project.optional-dependencies]
 test = ["pytest", "pytest-recording", "pytest-asyncio", "nest-asyncio", "cogapp"]
