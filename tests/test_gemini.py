@@ -1,4 +1,5 @@
 from click.testing import CliRunner
+from datetime import datetime
 import llm
 from llm.cli import cli
 import nest_asyncio
@@ -6,7 +7,9 @@ import json
 import os
 import pytest
 import pydantic
-from llm_gemini import cleanup_schema
+from llm_gemini import cleanup_schema, get_oauth_token, refresh_oauth_token, OAuthError
+from unittest.mock import patch, MagicMock
+from pathlib import Path
 
 nest_asyncio.apply()
 
@@ -220,14 +223,14 @@ def test_cli_gemini_models(tmpdir, monkeypatch):
     user_dir = tmpdir / "llm.datasette.io"
     user_dir.mkdir()
     monkeypatch.setenv("LLM_USER_PATH", str(user_dir))
+    # Mock home directory to prevent finding real OAuth creds
+    monkeypatch.setattr(Path, "home", lambda: tmpdir)
     # With no key set should error nicely
     runner = CliRunner()
     result = runner.invoke(cli, ["gemini", "models"])
     assert result.exit_code == 1
-    assert (
-        "Error: You must set the LLM_GEMINI_KEY environment variable or use --key\n"
-        == result.output
-    )
+    assert "You must set the LLM_GEMINI_KEY environment variable, use --key" in result.output
+    assert "or have OAuth credentials at ~/.gemini/oauth_creds.json" in result.output
     # Try again with --key
     result2 = runner.invoke(cli, ["gemini", "models", "--key", GEMINI_API_KEY])
     assert result2.exit_code == 0
@@ -272,3 +275,315 @@ def test_tools():
     assert second.tool_calls()[0].name == "pelican_name_generator"
     assert second.prompt.tool_results[0].output == "Charles"
     assert third.prompt.tool_results[0].output == "Sammy"
+
+
+def test_oauth_token_reading(tmpdir, monkeypatch):
+    """Test reading OAuth token from file"""
+    oauth_dir = tmpdir / ".gemini"
+    oauth_dir.mkdir()
+    oauth_file = oauth_dir / "oauth_creds.json"
+
+    # Mock home directory to use tmpdir
+    monkeypatch.setattr(Path, "home", lambda: tmpdir)
+
+    # Test 1: No file exists
+    assert get_oauth_token() is None
+
+    # Test 2: File exists with access_token
+    oauth_file.write_text(json.dumps({
+        "access_token": "test_token_123",
+        "expires_at": datetime.now().timestamp() + 3600
+    }), encoding="utf-8")
+    assert get_oauth_token() == "test_token_123"
+
+    # Test 3: File exists with token field (alternative name)
+    oauth_file.write_text(json.dumps({
+        "token": "test_token_456",
+        "expires_at": datetime.now().timestamp() + 3600
+    }), encoding="utf-8")
+    assert get_oauth_token() == "test_token_456"
+
+    # Test 4: Invalid JSON
+    oauth_file.write_text("not valid json", encoding="utf-8")
+    assert get_oauth_token() is None
+
+
+def test_oauth_token_refresh_success(tmpdir, monkeypatch):
+    """Test successful OAuth token refresh"""
+    oauth_dir = tmpdir / ".gemini"
+    oauth_dir.mkdir()
+    oauth_file = oauth_dir / "oauth_creds.json"
+
+    monkeypatch.setattr(Path, "home", lambda: tmpdir)
+
+    # Create expired token
+    expired_time = datetime.now().timestamp() - 100
+    oauth_file.write_text(json.dumps({
+        "access_token": "expired_token",
+        "expires_at": expired_time,
+        "refresh_token": "refresh_123",
+        "client_id": "client_id_123",
+        "client_secret": "client_secret_123"
+    }), encoding="utf-8")
+
+    # Mock httpx.post for token refresh
+    mock_response = MagicMock()
+    mock_response.json.return_value = {
+        "access_token": "new_token_789",
+        "expires_in": 3600
+    }
+    mock_response.raise_for_status = MagicMock()
+
+    with patch("llm_gemini.httpx.post", return_value=mock_response) as mock_post:
+        token = get_oauth_token()
+
+        # Verify refresh was called
+        assert mock_post.called
+        assert mock_post.call_args[0][0] == "https://oauth2.googleapis.com/token"
+
+        # Verify new token is returned
+        assert token == "new_token_789"
+
+        # Verify file was updated
+        updated_creds = json.loads(oauth_file.read_text(encoding="utf-8"))
+        assert updated_creds["access_token"] == "new_token_789"
+        assert "expires_at" in updated_creds
+
+
+def test_oauth_token_refresh_missing_refresh_token(tmpdir, monkeypatch):
+    """Test OAuth refresh fails when refresh_token is missing"""
+    oauth_dir = tmpdir / ".gemini"
+    oauth_dir.mkdir()
+    oauth_file = oauth_dir / "oauth_creds.json"
+
+    monkeypatch.setattr(Path, "home", lambda: tmpdir)
+
+    # Create expired token without refresh_token
+    expired_time = datetime.now().timestamp() - 100
+    oauth_file.write_text(json.dumps({
+        "access_token": "expired_token",
+        "expires_at": expired_time
+    }), encoding="utf-8")
+
+    with pytest.raises(OAuthError, match="no refresh_token is available"):
+        get_oauth_token()
+
+
+def test_oauth_token_refresh_missing_credentials(tmpdir, monkeypatch):
+    """Test OAuth refresh fails when client credentials are missing"""
+    oauth_dir = tmpdir / ".gemini"
+    oauth_dir.mkdir()
+    oauth_file = oauth_dir / "oauth_creds.json"
+
+    monkeypatch.setattr(Path, "home", lambda: tmpdir)
+
+    # Create expired token with refresh_token but missing client credentials
+    expired_time = datetime.now().timestamp() - 100
+    oauth_file.write_text(json.dumps({
+        "access_token": "expired_token",
+        "expires_at": expired_time,
+        "refresh_token": "refresh_123"
+    }), encoding="utf-8")
+
+    with pytest.raises(OAuthError, match="missing client_id or client_secret"):
+        get_oauth_token()
+
+
+def test_oauth_token_refresh_failed_request(tmpdir, monkeypatch):
+    """Test OAuth refresh fails when HTTP request fails"""
+    oauth_dir = tmpdir / ".gemini"
+    oauth_dir.mkdir()
+    oauth_file = oauth_dir / "oauth_creds.json"
+
+    monkeypatch.setattr(Path, "home", lambda: tmpdir)
+
+    # Create expired token
+    expired_time = datetime.now().timestamp() - 100
+    oauth_file.write_text(json.dumps({
+        "access_token": "expired_token",
+        "expires_at": expired_time,
+        "refresh_token": "invalid_refresh",
+        "client_id": "client_id_123",
+        "client_secret": "client_secret_123"
+    }), encoding="utf-8")
+
+    # Mock httpx.post to simulate 401 error
+    import httpx
+    mock_response = MagicMock()
+    mock_response.status_code = 401
+    mock_response.raise_for_status.side_effect = httpx.HTTPStatusError(
+        "Unauthorized", request=MagicMock(), response=mock_response
+    )
+
+    with patch("llm_gemini.httpx.post", return_value=mock_response):
+        with pytest.raises(OAuthError, match="invalid or revoked token"):
+            get_oauth_token()
+
+
+def test_oauth_header_generation(tmpdir, monkeypatch):
+    """Test that OAuth tokens generate Bearer auth headers"""
+    oauth_dir = tmpdir / ".gemini"
+    oauth_dir.mkdir()
+    oauth_file = oauth_dir / "oauth_creds.json"
+
+    monkeypatch.setattr(Path, "home", lambda: tmpdir)
+
+    # Create valid token
+    oauth_file.write_text(json.dumps({
+        "access_token": "test_oauth_token",
+        "expires_at": datetime.now().timestamp() + 3600
+    }), encoding="utf-8")
+
+    # Test with model
+    model = llm.get_model("gemini-1.5-flash-latest")
+
+    # The get_auth_headers method should return Bearer token
+    headers = model.get_auth_headers()
+    assert headers == {"Authorization": "Bearer test_oauth_token"}
+
+
+def test_oauth_vs_api_key_priority(tmpdir, monkeypatch):
+    """Test that API key takes priority over OAuth token"""
+    oauth_dir = tmpdir / ".gemini"
+    oauth_dir.mkdir()
+    oauth_file = oauth_dir / "oauth_creds.json"
+
+    monkeypatch.setattr(Path, "home", lambda: tmpdir)
+
+    # Create OAuth token
+    oauth_file.write_text(json.dumps({
+        "access_token": "test_oauth_token",
+        "expires_at": datetime.now().timestamp() + 3600
+    }), encoding="utf-8")
+
+    # Set API key
+    monkeypatch.setenv("LLM_GEMINI_KEY", "api_key_123")
+
+    # Test with model
+    model = llm.get_model("gemini-1.5-flash-latest")
+
+    # API key should take priority
+    headers = model.get_auth_headers()
+    assert headers == {"x-goog-api-key": "api_key_123"}
+
+
+@pytest.mark.vcr
+@pytest.mark.asyncio
+async def test_oauth_integration(tmpdir, monkeypatch):
+    """Integration test: Make actual API call using OAuth token from cache"""
+    oauth_dir = tmpdir / ".gemini"
+    oauth_dir.mkdir()
+    oauth_file = oauth_dir / "oauth_creds.json"
+
+    # Mock home directory to use tmpdir
+    monkeypatch.setattr(Path, "home", lambda: tmpdir)
+
+    # Get OAuth token from environment for real testing
+    # This allows developers to run: PYTEST_GEMINI_OAUTH_TOKEN=<token> pytest
+    oauth_token = os.environ.get("PYTEST_GEMINI_OAUTH_TOKEN", "oauth-test-token")
+
+    # Create OAuth cache file with token
+    oauth_file.write_text(json.dumps({
+        "access_token": oauth_token,
+        "expires_at": datetime.now().timestamp() + 3600
+    }), encoding="utf-8")
+
+    # Ensure no API key is set so it falls back to OAuth
+    monkeypatch.delenv("LLM_GEMINI_KEY", raising=False)
+
+    # Make API call using OAuth
+    model = llm.get_model("gemini-1.5-flash-latest")
+    response = model.prompt("Name for a pet pelican, just the name")
+    text = str(response)
+
+    # Verify we got a response
+    assert len(text) > 0
+    assert response.response_json is not None
+
+    # Verify the response contains expected fields
+    assert "candidates" in response.response_json
+    assert "modelVersion" in response.response_json
+
+    # Also test async
+    async_model = llm.get_async_model("gemini-1.5-flash-latest")
+    async_response = await async_model.prompt("Name for a pet pelican, just the name")
+    async_text = await async_response.text()
+    assert len(async_text) > 0
+
+
+@pytest.mark.vcr
+def test_cli_gemini_models_with_oauth(tmpdir, monkeypatch):
+    """Test that CLI gemini models command works with OAuth token"""
+    user_dir = tmpdir / "llm.datasette.io"
+    user_dir.mkdir()
+    monkeypatch.setenv("LLM_USER_PATH", str(user_dir))
+
+    # Create OAuth cache directory and file
+    oauth_dir = tmpdir / ".gemini"
+    oauth_dir.mkdir()
+    oauth_file = oauth_dir / "oauth_creds.json"
+
+    # Mock home directory to use tmpdir
+    monkeypatch.setattr(Path, "home", lambda: tmpdir)
+
+    # Get OAuth token from environment for real testing
+    oauth_token = os.environ.get("PYTEST_GEMINI_OAUTH_TOKEN", "oauth-test-token")
+
+    # Create OAuth cache file with token
+    oauth_file.write_text(json.dumps({
+        "access_token": oauth_token,
+        "expires_at": datetime.now().timestamp() + 3600
+    }), encoding="utf-8")
+
+    # Ensure no API key is set so it falls back to OAuth
+    monkeypatch.delenv("LLM_GEMINI_KEY", raising=False)
+
+    # Run the gemini models command
+    runner = CliRunner()
+    result = runner.invoke(cli, ["gemini", "models"])
+
+    # Should succeed using OAuth
+    assert result.exit_code == 0
+    assert "gemini-1.5-flash-latest" in result.output
+
+    # Test with --method filter
+    result2 = runner.invoke(cli, ["gemini", "models", "--method", "embedContent"])
+    assert result2.exit_code == 0
+    models = json.loads(result2.output)
+    for model in models:
+        assert "embedContent" in model["supportedGenerationMethods"]
+
+
+@pytest.mark.vcr
+def test_cli_gemini_files_with_oauth(tmpdir, monkeypatch):
+    """Test that CLI gemini files command works with OAuth token"""
+    user_dir = tmpdir / "llm.datasette.io"
+    user_dir.mkdir()
+    monkeypatch.setenv("LLM_USER_PATH", str(user_dir))
+
+    # Create OAuth cache directory and file
+    oauth_dir = tmpdir / ".gemini"
+    oauth_dir.mkdir()
+    oauth_file = oauth_dir / "oauth_creds.json"
+
+    # Mock home directory to use tmpdir
+    monkeypatch.setattr(Path, "home", lambda: tmpdir)
+
+    # Get OAuth token from environment for real testing
+    oauth_token = os.environ.get("PYTEST_GEMINI_OAUTH_TOKEN", "oauth-test-token")
+
+    # Create OAuth cache file with token
+    oauth_file.write_text(json.dumps({
+        "access_token": oauth_token,
+        "expires_at": datetime.now().timestamp() + 3600
+    }), encoding="utf-8")
+
+    # Ensure no API key is set so it falls back to OAuth
+    monkeypatch.delenv("LLM_GEMINI_KEY", raising=False)
+
+    # Run the gemini files command
+    runner = CliRunner()
+    result = runner.invoke(cli, ["gemini", "files"])
+
+    # Should succeed using OAuth (might show "No files" but shouldn't error)
+    assert result.exit_code == 0
