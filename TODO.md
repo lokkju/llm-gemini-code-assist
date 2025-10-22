@@ -5,3 +5,5 @@
 - [ ] verify github workflows and publishing steps
 - [ ] validate tool calling and other modes
 - [ ] validate llm gemini-ca auth command
+- [ ] clean up code by removing all reference to API key usage
+- [ ] remove references to the GOOGLE_CLOUD_PROJECT env var

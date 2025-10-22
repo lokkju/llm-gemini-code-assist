@@ -16,6 +16,7 @@ dependencies = [
     "ijson",
     "google-auth",
     "requests>=2.32.5",
+    "PyJWT",
 ]
 
 [project.urls]
