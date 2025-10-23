@@ -192,8 +192,7 @@ async def test_prompt_async():
 
 
 @pytest.mark.vcr
-@pytest.mark.asyncio
-async def test_prompt_with_pydantic_schema():
+def test_prompt_with_pydantic_schema():
     class Dog(pydantic.BaseModel):
         name: str
         age: int
@@ -203,12 +202,11 @@ async def test_prompt_with_pydantic_schema():
     response = model.prompt(
         "Invent a cool dog", key=None, schema=Dog, stream=False
     )
-    print(response)
-    # assert_structure_matches(json.loads(response.text()), {
-    #     "age": int,
-    #     "bio": str,
-    #     "name": str,
-    # })
+    assert_structure_matches(json.loads(str(response)), {
+        "age": int,
+        "bio": str,
+        "name": str,
+    })
     # assert_gemini_2_5_flash_response(response)
     assert response.input_tokens == 17
 
