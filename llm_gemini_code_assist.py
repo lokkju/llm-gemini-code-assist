@@ -7,6 +7,7 @@ import ijson
 import json
 import jwt
 import llm
+import logging
 import os
 from pathlib import Path
 from pydantic import Field
@@ -16,6 +17,8 @@ from google.oauth2.credentials import Credentials
 from google.auth.credentials import TokenState
 from google.auth.transport.requests import Request as GoogleAuthRequest
 from google_auth_oauthlib.flow import InstalledAppFlow
+
+logger = logging.getLogger(__name__)
 
 SAFETY_SETTINGS = [
     {
@@ -63,29 +66,82 @@ SCOPES = [
     "https://www.googleapis.com/auth/userinfo.profile",
 ]
 
+#TODO: remove?
 class OAuthError(llm.ModelError):
     """Raised when OAuth token operations fail"""
     pass
 
-def get_oauth_credentials():
-    """Load OAuth credentials from <plugin_cache_dir>/oauth_creds.json and refresh if needed.
+class AuthenticationError(llm.ModelError):
+    """Custom exception for all authentication-related failures."""
+    pass
 
-    Returns:
-        google.oauth2.credentials.Credentials object
+def authenticate(reauthenticate=False, use_gemeini_cli_creds=False, use_oauth=False):
+    """Authenticate with Google OAuth for Code Assist API access"""
+    # Step 1: Try to load existing credentials
+    credentials = get_oauth_credentials()
+    if credentials and credentials.valid:
+        click.echo("✓ Already authenticated with valid OAuth credentials.")
+        if not click.confirm("Are you sure you want to re-authenticate?", default=False):
+            raise click.Abort()
 
-    Raises:
-        OAuthError: If credentials can't be loaded or refreshed
-    """
+    # Step 2: look for existing gemini-cli credentials
+    gemini_cli_oauth_path = Path.home() / ".gemini" / OAUTH_CREDENTIALS_FILE
+    if gemini_cli_oauth_path.exists():
+        click.echo(f"Found existing gemini-cli OAuth credentials at {gemini_cli_oauth_path}.")
+        if click.confirm("Do you want to use attempt to use these to authenticate?", default=True):
+            try:
+                with open(gemini_cli_oauth_path, "r") as f:
+                    creds_data = json.load(f)
+                credentials = credentials_from_oauth_creds_json(creds_data)
+                print(credentials.expiry)
+                raise click.Abort()
+
+                if credentials and credentials.valid:
+                    click.echo("✓ Found valid OAuth credentials from gemini-cli.")
+                    _save_creds_to_plugin_cache(credentials)
+                    return credentials
+            except (json.JSONDecodeError, IOError, AttributeError, OAuthError) as e:
+                click.echo(f"✗ Failed to load gemini-cli OAuth credentials: {e}; Proceeding to full authentication flow.")
+
+    client_secrets = {
+        "installed": {
+            "client_id": CLIENT_ID,
+            "client_secret": CLIENT_SECRET,
+            "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+            "token_uri": "https://oauth2.googleapis.com/token",
+        }
+    }
+
+    flow = InstalledAppFlow.from_client_config(
+        client_secrets,
+        scopes=SCOPES,
+    )
+
+    click.echo("\nCode Assist authentication required.")
+    click.echo("Opening browser for authentication.")
+
     try:
-        creds_data = _load_json_from_plugin_cache(OAUTH_CREDENTIALS_FILE)
+        credentials = flow.run_local_server(
+            port=0,
+            authorization_prompt_message="Please visit this URL to authorize this application: {url}",
+            success_message="Authentication successful. You can close this window.",
+            open_browser=True,
+        )
+    except Exception as e:
+        raise click.ClickException(f"Authentication failed: {e}")
+    if not credentials or not credentials.valid:
+        raise click.ClickException("Failed to obtain valid OAuth credentials.")
+    _save_creds_to_plugin_cache(credentials)
+    click.echo("\n✓ Authentication successful!")
+
+
+def credentials_from_oauth_creds_json(creds_data):
+    # TODO: use from_authorized_user_info ?
+    try:
         # Create Credentials object
-        access_token = creds_data.get("access_token")
-        expiry = None
-        expires_at = creds_data.get("expires_at")
-        if expires_at:
-            if expires_at > 10000000000:
-                expires_at = expires_at / 1000
-            expiry = datetime.fromtimestamp(expires_at)
+        access_token = creds_data["access_token"]
+        expiry_date = creds_data["expiry_date"]
+        expiry = datetime.fromtimestamp(expiry_date / 1000)
 
         credentials = Credentials(
             token=access_token,
@@ -97,11 +153,23 @@ def get_oauth_credentials():
             scopes=" ".join(SCOPES),
             expiry=expiry,
         )
-    except (json.JSONDecodeError, IOError, AttributeError) as e:
-        raise OAuthError(
-            f"Failed to load OAuth credentials: {e}. "
-            "Please authenticate using: `llm gemini-ca auth`",
-        )
+        return credentials
+
+    except KeyError as e:
+        return None
+
+def get_oauth_credentials():
+    """Load OAuth credentials from <plugin_cache_dir>/oauth_creds.json and refresh if needed.
+
+    Returns:
+        google.oauth2.credentials.Credentials object
+
+    Raises:
+        OAuthError: If credentials can't be loaded or refreshed
+    """
+    creds_data = _load_json_from_plugin_cache(OAUTH_CREDENTIALS_FILE)
+
+    credentials = credentials_from_oauth_creds_json(creds_data)
 
     # If token is expired, try to refresh it
     if credentials and credentials.token_state != TokenState.FRESH and credentials.refresh_token:
@@ -126,7 +194,7 @@ def get_oauth_credentials():
     # If token is still not valid after attempting refresh, the refresh
     # call above will raise an exception. If the token is expired and
     # there's no refresh token, we'll also raise an error.
-    if not credentials.valid:
+    if credentials and not credentials.valid:
         if credentials.expired and not credentials.refresh_token:
             raise OAuthError(
                 "OAuth token is expired and no refresh_token is available. "
@@ -174,6 +242,13 @@ def _plugin_cache_dir():
     plugin_cache_dir = user_dir / GEMINI_CODE_ASSIST_PLUGIN_SLUG
     plugin_cache_dir.mkdir(exist_ok=True)
     return plugin_cache_dir
+
+def _clear_plugin_cache():
+    plugin_cache_dir = _plugin_cache_dir()
+    for filename in os.listdir(plugin_cache_dir):
+       file_path = os.path.join(plugin_cache_dir, filename)
+       if os.path.isfile(file_path) or os.path.islink(file_path):
+          os.unlink(file_path)
 
 def _load_json_from_plugin_cache(filename):
     plugin_cache_dir = _plugin_cache_dir()
@@ -223,7 +298,7 @@ def _save_creds_to_plugin_cache(credentials):
         "id_token": credentials.id_token,
         "token_uri": credentials.token_uri,
         "scopes": credentials.scopes,
-        "expiry_date": int(credentials.expiry.timestamp() * 1000) if credentials.expiry else None,
+        "expiry_date": int(credentials.expiry.timestamp() * 1000),
     }
     with open(oauth_file, "w") as f:
         json.dump(creds_data, f, indent=2)
@@ -876,21 +951,16 @@ def register_commands(cli):
                 try:
                     with open(gemini_cli_oauth_path, "r") as f:
                         creds_data = json.load(f)
-                    credentials = Credentials(
-                        token=creds_data.get("access_token"),
-                        id_token=creds_data.get("id_token"),
-                        refresh_token=CENSORED-REFRESH-TOKEN
-                        token_uri="https://oauth2.googleapis.com/token",
-                        client_id=CENSORED-CLIENT-ID
-                        client_secret=CENSORED-CLIENT-SECRET
-                        scopes=" ".join(SCOPES),
-                    )
+                    credentials = credentials_from_oauth_creds_json(creds_data)
+                    print(credentials.expiry)
+                    raise click.Abort()
+
                     if credentials and credentials.valid:
                         click.echo("✓ Found valid OAuth credentials from gemini-cli.")
                         _save_creds_to_plugin_cache(credentials)
                         return credentials
-                except (json.JSONDecodeError, IOError, AttributeError):
-                    click.echo("✗ Failed to load gemini-cli OAuth credentials. Proceeding to full authentication flow.")
+                except (json.JSONDecodeError, IOError, AttributeError, OAuthError) as e:
+                    click.echo(f"✗ Failed to load gemini-cli OAuth credentials: {e}; Proceeding to full authentication flow.")
 
         client_secrets = {
             "installed": {
@@ -922,6 +992,14 @@ def register_commands(cli):
             raise click.ClickException("Failed to obtain valid OAuth credentials.")
         _save_creds_to_plugin_cache(credentials)
         click.echo("\n✓ Authentication successful!")
+
+    @gemini_ca.command()
+    def clear_cache():
+        """
+        Clear cached credentials
+        """
+        _clear_plugin_cache()
+        click.echo("Plugin cache cleared")
 
     @gemini_ca.command()
     def models():

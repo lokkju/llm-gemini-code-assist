@@ -5,18 +5,31 @@ description = "LLM plugin to access Google's Gemini via Code Assist API with OAu
 readme = "README.md"
 requires-python = ">=3.10"
 authors = [
-    {name = "Simon Willison"},
-    {name = "Loki Coyote"}
+    {name = "Loki Coyote"},
+    {name = "Simon Willison"}
 ]
 license = "Apache-2.0"
 classifiers = []
 dependencies = [
     "llm>=0.27",
-    "httpx",
-    "ijson",
-    "google-auth",
+    "google-auth>=2.43.0",
     "requests>=2.32.5",
-    "PyJWT",
+    "ijson>=3.4.0.post0",
+    "httpx>=0.28.1",
+    "pyjwt>=2.10.1",
+    "google-auth-oauthlib>=1.2.2",
+]
+
+[dependency-groups]
+dev = [
+    "pre-commit>=4.3.0",
+    "pytest-dependency>=0.6.0",
+    "pytest>=8.0.0,<9",
+    "pytest-asyncio>=1.3.0",
+    "pytest-cov>=7.0.0",
+    "pytest-recording>=0.13.4",
+    "nest-asyncio>=1.6.0",
+    "cogapp>=3.6.0",
 ]
 
 [project.urls]
@@ -26,14 +39,6 @@ Issues = "https://github.com/lokkju/llm-gemini-code-assist/issues"
 [project.entry-points.llm]
 gemini_code_assist = "llm_gemini_code_assist"
 
-[project.optional-dependencies]
-test = ["pytest", "pytest-recording", "pytest-asyncio", "nest-asyncio", "cogapp", "pytest-cov"]
-
 [tool.pytest.ini_options]
 asyncio_mode = "strict"
 asyncio_default_fixture_loop_scope = "function"
-
-[dependency-groups]
-dev = [
-    "pre-commit>=4.3.0",
-]

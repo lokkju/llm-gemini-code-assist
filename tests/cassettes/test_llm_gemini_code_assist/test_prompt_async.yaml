@@ -1,54 +1,45 @@
 interactions:
 - request:
-    body: '{"model": "gemini-2.5-flash-lite", "project": "prismatic-acronym-xzpzh",
-      "user_prompt_id": "CENSORED-USER-PROMPT-ID", "request": {"contents": [{"role":
-      "user", "parts": [{"text": "Most popular search engine, just the name"}]}],
-      "safetySettings": [{"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold":
-      "BLOCK_NONE"}, {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold":
-      "BLOCK_NONE"}, {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
-      {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"}]}}'
+    body: grant_type=refresh_token&client_id=CENSORED-CLIENT-ID&client_secret=CENSORED-CLIENT-SECRET&refresh_token=CENSORED-REFRESH-TOKEN&scope=o+p+e+n+i+d+++h+t+t+p+s+%3A+%2F+%2F+w+w+w+.+g+o+o+g+l+e+a+p+i+s+.+c+o+m+%2F+a+u+t+h+%2F+c+l+o+u+d+-+p+l+a+t+f+o+r+m+++h+t+t+p+s+%3A+%2F+%2F+w+w+w+.+g+o+o+g+l+e+a+p+i+s+.+c+o+m+%2F+a+u+t+h+%2F+u+s+e+r+i+n+f+o+.+e+m+a+i+l+++h+t+t+p+s+%3A+%2F+%2F+w+w+w+.+g+o+o+g+l+e+a+p+i+s+.+c+o+m+%2F+a+u+t+h+%2F+u+s+e+r+i+n+f+o+.+p+r+o+f+i+l+e
     headers:
-      accept:
+      Accept:
       - '*/*'
-      accept-encoding:
+      Accept-Encoding:
       - gzip, deflate
-      authorization:
-      - CENSORED-OAUTH-TOKEN
-      connection:
+      Connection:
       - keep-alive
-      content-length:
-      - '523'
-      content-type:
-      - application/json
-      host:
-      - cloudcode-pa.googleapis.com
-      user-agent:
-      - python-httpx/0.28.1
+      Content-Length:
+      - '521'
+      Content-Type:
+      - application/x-www-form-urlencoded
+      User-Agent:
+      - python-requests/2.32.5
+      x-goog-api-client:
+      - gl-python/3.11.10 auth/2.43.0 cred-type/u
     method: POST
-    uri: https://cloudcode-pa.googleapis.com/v1internal:streamGenerateContent
+    uri: https://oauth2.googleapis.com/token
   response:
     body:
-      string: !!binary |
-        H4sIAAAAAAAC/6xSy27CMBC85ysinxtEwqOUW1UoQiqPtlaFQAi5xCEWiR3ZRhRV+XfsvLBb9dab
-        vbM7szu7m2/HdQHHImNUYDB09V9F9oiGJEQSCxXbFDG3wkqcUYmpbAqqMGeJJgEpC3EC7kwoQ1ya
-        ZD8pqzSJvzQrmDB2UFwWnBu/bfPObzIgIpSI+A0jwahmeYeLZc1RVm/LbHAS6IBnWCI1JDLGABln
-        aSYhO2L6xE7FiINawbDFSvCbBMkkSizs4YZxFEVkDy9Z4dFivhuNZ4/zUeOTqS1GqjeS2I5ZXiuP
-        UULkRXPB8QradktrgJtZ1Wv710j/quv/1nWMlZVn8oG5IOW6DjhVC/SCVs+LEiRiT+ngih/sOVZd
-        QpIW7gXtoOf5bS8IYNAZ+v1hu9vqdAf3ne66LqivehrqAjlZ9dBL//i83sXi87ykMxqfX6f6OnIn
-        d64AAAD//4oFAAAA//8DAO0jm9UKAwAA
+      string: "{\n  \"error\": \"invalid_scope\",\n  \"error_description\": \"Some
+        requested scopes were invalid. {invalid\\u003d[a, c, d, e, f, g, h, i, l,
+        m, -, n, ., o, /, p, r, s, t, u, w, :]}\",\n  \"error_uri\": \"https://developers.google.com/identity/protocols/oauth2\"\n}"
     headers:
       Alt-Svc:
       - h3=":443"; ma=2592000,h3-29=":443"; ma=2592000
+      Cache-Control:
+      - no-cache, no-store, max-age=0, must-revalidate
       Content-Encoding:
       - gzip
       Content-Type:
-      - application/json; charset=UTF-8
+      - application/json; charset=utf-8
       Date:
-      - Wed, 22 Oct 2025 23:16:04 GMT
+      - Fri, 14 Nov 2025 00:46:05 GMT
+      Expires:
+      - Mon, 01 Jan 1990 00:00:00 GMT
+      Pragma:
+      - no-cache
       Server:
-      - ESF
-      Server-Timing:
-      - gfet4t7; dur=326
+      - scaffolding on HTTPServer2
       Transfer-Encoding:
       - chunked
       Vary:
@@ -62,6 +53,6 @@ interactions:
       X-XSS-Protection:
       - '0'
     status:
-      code: 200
-      message: OK
+      code: 400
+      message: Bad Request
 version: 1
