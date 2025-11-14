@@ -7,7 +7,7 @@ import json
 import os
 import pytest
 import pydantic
-from llm_gemini_code_assist import cleanup_schema, get_oauth_token, get_oauth_credentials, OAuthError, _SharedGemini, OAUTH_CREDENTIALS_FILE, _save_json_to_plugin_cache, _clean_plugin_cache, _load_json_from_plugin_cache, authenticate
+from llm_gemini_code_assist import cleanup_schema, get_oauth_token, get_oauth_credentials, CLIENT_ID, CLIENT_SECRET, SCOPES, AuthenticationError, _SharedGemini, OAUTH_CREDENTIALS_FILE, _save_json_to_plugin_cache, _clean_plugin_cache, _load_json_from_plugin_cache, authenticate
 from unittest.mock import patch
 from pathlib import Path
 import textwrap as tw
@@ -15,14 +15,19 @@ from tests.asserts import assert_dict_contains, assert_structure_matches, assert
 
 nest_asyncio.apply()
 
-@pytest.mark.vcr
-@pytest.mark.dependency()
-@pytest.mark.usefixtures("mock_llm_user_path")
-def test_authenticate(mock_llm_user_path):
-    credentials = authenticate(reauthenticate=False, use_gemini_cli_creds=False, use_oauth=False)
+@pytest.mark.usefixtures("shared_mock_llm_user_path", "mock_oauth_credentials")
+def test_authenticate(shared_mock_llm_user_path):
+    """Test authentication - credentials are provided by mock_oauth_credentials fixture"""
+    # The mock_oauth_credentials fixture handles both recording and playback
+    # During recording: it copies real credentials
+    # During playback: it mocks get_oauth_credentials
+    # This test doesn't make HTTP requests, so it doesn't need VCR
+    credentials = authenticate()
+    assert credentials is not None
     assert credentials.valid
 
 @pytest.mark.vcr
+@pytest.mark.usefixtures("shared_mock_llm_user_path", "mock_oauth_credentials")
 def test_prompt_sync():
     model = llm.get_model("gemini-ca/gemini-2.5-flash-lite")
     response = model.prompt("Most popular search engine, just the name", key=None)
@@ -39,6 +44,7 @@ def test_prompt_sync():
 
 @pytest.mark.vcr
 @pytest.mark.asyncio
+@pytest.mark.usefixtures("shared_mock_llm_user_path", "mock_oauth_credentials")
 async def test_prompt_async():
     # And try it async too
     async_model = llm.get_async_model("gemini-ca/gemini-2.5-flash-lite")
@@ -50,6 +56,7 @@ async def test_prompt_async():
 
 
 @pytest.mark.vcr
+@pytest.mark.usefixtures("shared_mock_llm_user_path", "mock_oauth_credentials")
 def test_prompt_with_pydantic_schema():
     class Dog(pydantic.BaseModel):
         name: str
@@ -155,14 +162,8 @@ def test_cleanup_schema(schema, expected):
     assert result == expected
 
 
-@pytest.mark.vcr
-def test_cli_gemini_models(tmpdir, monkeypatch):
-    user_dir = tmpdir / "llm.datasette.io"
-    user_dir.mkdir()
-    monkeypatch.setenv("LLM_USER_PATH", str(user_dir))
-    # Mock home directory to prevent finding real OAuth creds
-    monkeypatch.setattr(Path, "home", lambda: tmpdir)
-    # With no OAuth creds should error nicely
+@pytest.mark.usefixtures("shared_mock_llm_user_path")
+def test_cli_gemini_ca_models():
     runner = CliRunner()
     result = runner.invoke(cli, ["gemini-ca", "models"])
     assert result.output == tw.dedent("""
@@ -175,7 +176,8 @@ def test_cli_gemini_models(tmpdir, monkeypatch):
 
 
 @pytest.mark.vcr
-def test_tools():
+@pytest.mark.usefixtures("shared_mock_llm_user_path", "mock_oauth_credentials")
+def test_prompt_tools():
     model = llm.get_model("gemini-2.5-flash-ca")
     names = ["Charles", "Sammy"]
     chain_response = model.chain(
@@ -209,41 +211,37 @@ def test_tools():
     else:
         assert False, f"Expected three responses in the chain, got {response_count}"
 
-
-def test_oauth_token_reading(tmpdir, monkeypatch):
+@pytest.mark.usefixtures("mock_llm_user_path")
+def test_oauth_token_reading():
     """Test reading OAuth token from file"""
-
-    # Mock home directory to use tmpdir
-    monkeypatch.setattr(Path, "home", lambda: tmpdir)
     _clean_plugin_cache()
 
     # Test 1: No file exists
-    assert get_oauth_token() is None
+    with pytest.raises(AuthenticationError):
+        assert get_oauth_token()
 
     # Test 2: File exists with access_token
     _save_json_to_plugin_cache(OAUTH_CREDENTIALS_FILE,{
         "access_token": "test_token_123",
-        "expires_at": datetime.now().timestamp() + 3600
+        "expiry_date": int((datetime.utcnow().timestamp() + 3600) * 1000)
     })
     assert get_oauth_token() == "test_token_123"
 
     # Test 3: Invalid JSON
     _save_json_to_plugin_cache(OAUTH_CREDENTIALS_FILE,"not valid json")
-    with pytest.raises(OAuthError):
+    with pytest.raises(AuthenticationError):
         assert get_oauth_token()
 
 
-def test_oauth_token_refresh_success(tmpdir, monkeypatch):
+@pytest.mark.usefixtures("mock_llm_user_path")
+def test_oauth_token_refresh_success():
     """Test successful OAuth token refresh"""
-    monkeypatch.setattr(Path, "home", lambda: tmpdir)
-    _clean_plugin_cache()
-
     # Create expired token
     #
-    expired_time = int(datetime.utcnow().timestamp() - 100) * 1000
+    expiry_date = int(datetime.utcnow().timestamp() - 100) * 1000
     _save_json_to_plugin_cache(OAUTH_CREDENTIALS_FILE,{
         "access_token": "expired_token",
-        "expires_at": expired_time,
+        "expiry_date": expiry_date,
         "refresh_token": "CENSORED-REFRESH-TOKEN",
         "client_id": "client_id_123",
         "client_secret": "client_secret_123"
@@ -268,53 +266,49 @@ def test_oauth_token_refresh_success(tmpdir, monkeypatch):
         assert updated_creds["access_token"] == "new_token_789"
         assert "expiry_date" in updated_creds
 
-
+@pytest.mark.usefixtures("mock_llm_user_path")
 def test_oauth_token_refresh_missing_refresh_token(tmpdir, monkeypatch):
     """Test OAuth refresh fails when refresh_token is missing"""
-    monkeypatch.setattr(Path, "home", lambda: tmpdir)
-    _clean_plugin_cache()
-
     # Create expired token without refresh_token
-    expired_time = datetime.utcnow().timestamp() - 100
+    expiry_date = datetime.utcnow().timestamp() - 100
     _save_json_to_plugin_cache(OAUTH_CREDENTIALS_FILE,{
         "access_token": "expired_token",
-        "expires_at": expired_time
+        "expiry_date": expiry_date
     })
 
-    with pytest.raises(OAuthError, match="no refresh_token is available"):
+    with pytest.raises(AuthenticationError, match="no refresh_token is available"):
         get_oauth_token()
 
 
 @pytest.mark.vcr
-def test_oauth_token_refresh_failed_request(tmpdir, monkeypatch):
+@pytest.mark.usefixtures("mock_llm_user_path")
+def test_oauth_token_refresh_failed_request():
     """Test OAuth refresh fails when HTTP request fails"""
-    monkeypatch.setattr(Path, "home", lambda: tmpdir)
-    _clean_plugin_cache()
 
     # Create expired token
-    expired_time = int(datetime.utcnow().timestamp() - 100) * 1000
+    expiry_date = int(datetime.utcnow().timestamp() - 100) * 1000
     _save_json_to_plugin_cache(OAUTH_CREDENTIALS_FILE,{
         "access_token": "expired_token",
-        "expires_at": expired_time,
+        "expiry_date": expiry_date,
         "refresh_token": "CENSORED-REFRESH-TOKEN",
         "client_id": "client_id_123",
-        "client_secret": "client_secret_123"
+        "client_secret": "client_secret_123",
+        "scope": " ".join(SCOPES)
     })
 
     # Google's library will make real request and fail
-    with pytest.raises(OAuthError, match="Failed to refresh OAuth token"):
-        print(get_oauth_token())
+    with pytest.raises(AuthenticationError, match="invalid_grant"):
+        assert get_oauth_token()
 
 
-def test_oauth_header_generation(tmpdir, monkeypatch):
+@pytest.mark.usefixtures("mock_llm_user_path")
+def test_oauth_header_generation():
     """Test that OAuth tokens generate Bearer auth headers"""
-    monkeypatch.setattr(Path, "home", lambda: tmpdir)
-    _clean_plugin_cache()
 
     # Create valid token
     _save_json_to_plugin_cache(OAUTH_CREDENTIALS_FILE,{
         "access_token": "test_oauth_token",
-        "expires_at": int(datetime.utcnow().timestamp() + 3600) * 1000
+        "expiry_date": int(datetime.utcnow().timestamp() + 3600) * 1000
     })
 
     # Test with model
@@ -330,27 +324,19 @@ def test_oauth_header_generation(tmpdir, monkeypatch):
     reason="This is a live integration test and requires PYTEST_GEMINI_OAUTH_TOKEN"
 )
 @pytest.mark.asyncio
-async def test_oauth_integration(tmpdir, monkeypatch):
+@pytest.mark.usefixtures("mock_llm_user_path")
+async def test_oauth_integration():
     """Integration test: Make actual API call using OAuth token from cache"""
-    oauth_dir = tmpdir / ".gemini"
-    oauth_dir.mkdir()
-    oauth_file = oauth_dir / "oauth_creds.json"
-
-    # Mock home directory to use tmpdir
-    monkeypatch.setattr(Path, "home", lambda: tmpdir)
 
     # Get OAuth token from environment for real testing
     # This allows developers to run: PYTEST_GEMINI_OAUTH_TOKEN=<token> pytest
     oauth_token = os.environ.get("PYTEST_GEMINI_OAUTH_TOKEN", "oauth-test-token")
 
     # Create OAuth cache file with token
-    oauth_file.write_text(json.dumps({
+    _save_json_to_plugin_cache(OAUTH_CREDENTIALS_FILE,{
         "access_token": oauth_token,
-        "expires_at": datetime.now().timestamp() + 3600
-    }), encoding="utf-8")
-
-    # Ensure no API key is set so it falls back to OAuth
-    monkeypatch.delenv("LLM_GEMINI_KEY", raising=False)
+        "expiry_date": int(datetime.utcnow().timestamp() + 3600) * 1000
+    })
 
     # Make API call using OAuth
     model = llm.get_model("gemini-2.5-flash-lite-ca")

@@ -1,6 +1,6 @@
 interactions:
 - request:
-    body: '{"model": "gemini-2.5-flash", "project": "prismatic-acronym-xzpzh", "user_prompt_id":
+    body: '{"model": "gemini-2.5-flash", "project": "CENSORED-PROJECT-ID", "user_prompt_id":
       "CENSORED-USER-PROMPT-ID", "request": {"contents": [{"role": "user", "parts":
       [{"text": "Two names for a pet pelican"}]}], "safetySettings": [{"category":
       "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"}, {"category":
@@ -30,28 +30,25 @@ interactions:
   response:
     body:
       string: !!binary |
-        H4sIAAAAAAAC/8RWWY/aSBB+z68Y8Upm8G0cKQ8+GmMwvmGAKEJtYxuD73Mgmv++5prArBKtNrPa
-        t66u++uq6vr249PDQyd3izSJC7fz5eFItzcOjNfBGpZu0d59O909XHhnfhKXbly+KVyu8yQ8GulE
-        ydoNO59vWSnMy1tj701exMpNUvmb0gz8GJZVfrLGBw1H9Ia9eXJI6e0+RHRdMKrpokJtu6A4PCuw
-        AzGN9INUMC9ToMYudbAtaXQwCZ9t0pB1tZceSu0yp6ntmWLtIbvP7N4iriNtvN3Zs9mBzLMGWy+5
-        w7Okg9CpkQjnJlstZnr9MWcPzDlFEDQYj9FsIgAmyUY57wdhD6SRVPAktdcQL9taPehzXARGCABD
-        mdrARTXuT/NBaEWkqvbHjj7c9j3GbUJfCGLC2FmsX4v4UAoGCmFud2Bcx4SAKf1tklaTbgJ2WxOt
-        5O5Gw/2lRBDPakIQvjPw1hjh27XshbPMyhTEUdXYWYKeV8agWupNCHa+f9ClJEIKrYgwasOqh4Gm
-        zKqGViI/GeaQCZTxYsfkcayrPT5zuDNGtKLrtiFM5zWvo/66PhSUNzQ9fdLdxWyXetFyabNXXhxA
-        Uzy6jeppM7U4riqB+2wylSYLfkQtJ4cB7PfUSW/Y8AGaoAvbLpd7uK03B9cS1GU16i5rDkMy5dnq
-        h+iiiFia1jzCdXsJodpjjQ67aMHReCh7CZnNFFFNc0KUtDTYQgOnvQYJbCLimelsJIt44WNdgq8A
-        FPOGk7V81pQUbzbCvt5lSYVJRl6ZizG8YJ+AmWgO7QmeLp41ezEOzL2MBW2pjQYjKdsZI05NPY9O
-        0LLgAG6bKYsNmkh+plHEJ4WSsKcvSMY7FZMTQTLSRREdsiKqMxWt1pSBkbpVOVYKJuJuyOGWLxS2
-        T9Hetjy8FJYoQsgMZsau+fr1rjlOle9VsVMGSczDMHzXVxeJGEanfkjdMGgbdHWkV74buzksk/xv
-        FlsNmPvHnvvx+o51T79+/n1P/o+R3VDf38438Xa8IA6KjeHCIomPEZiWqt346xTQc8u9Acsg9t+P
-        n/tE2plXun6S749mhqwxWfGsBUTVWKyG7WFlagDww3e5dNI8saEdhEF50lOAKEuixMngN4Kmk5wG
-        G/qEYyRKIZT7iFDvxAu3dvOL0VMwJpgBQ7IWq1+7uOpc7SNPCMr0UQzrUzeCd6/9jyEQWEUEhjo1
-        V7yqWECxPhYIBKExBiX+LRB/nF5LsaY5+eC8yCeaIUmiT7d5kf/JA6M0QlIUg/8xACaYT1lZXqzA
-        XJMlXvpQHLAnqq1EjGlhoP/0ed/O13lwvvl+ttupCui7E7eE7fICb4bVMawoLa1k58Z8Up1WFxS/
-        BnOz79xLYG8SZVLC8J6JEj+5OfS8wLH26WkOqspKABNWEd7AufVfCG18QXg/ju72qHZ/glekLTC/
-        f4w2lLskfs7Fy+n7r9L6WMfYbxxf1rh7NPvMiX0p0POSOHPzIjiPbt+N2mH+iD2Rj14Ii83Fd8fJ
-        3TYDKzh/MRiCkY8o8ohhFoZ/QakvCPXEIBjO0MurwnWdldZHhTKak1DDRsoK3xZ2owWVxmP6qahe
-        P71++gsAAP//igUAAAD//wMAL+jJSwMLAAA=
+        H4sIAAAAAAAC/7RVWXOiTBR9z69I8ZoxNmCzpGoeUDpIXEBBxUxNUS02iLLZQNRM5b8PbvmMX808
+        zGTKl77b4fS519vfftzc3jKU5Fma5IR5uN3blcfDyTyc44Lkle/bwXd7ih3jaVKQpHgvOLlpGu1B
+        mDidk4j5chnKMC0uwa4hT2nFIi2DRWGFQYKLkh7QWuGm2ai3604o5MNFZ+Ml/fGoZwrJqohtONsN
+        wwI0PMl6QXk8s7WncKxK6cywpEiC3iBbK8Tc1llx6eVGRrBMU7W9jLfY47pTzK1WTgdIZNqTBst8
+        C+IoCKf55hlxIxFtZ5rQ4Un6Ms6bjiQGRVOYRRulafB15zGSjFFhqaopZm2gzdNILtfGXScw7fEA
+        q3TY7UeBET3yvFyHT0/8y10PI71Uggwe+cA6jRotNdDb6RxsrOV4KU+ERrJrJYs4evXmYSqVj7pq
+        xh2T7hpqBnur12ByF6zr3GLQ7G/raFCOVRqxi07ylGJSp1gzVxAAwQJOsVzaOovFMtc3oPTQQNw6
+        fkynGtVf0ePUemZxuZXN3SaehZNOiR1nvuOt10nKyRqZbL5+/dC8Q2f8MvGKME1aOIqu+n7KSHB8
+        6FdGorAaIHdvuwFJCMVFSv+HWFVgGuxn4sfbVeijfWl9fz+//YfH5NgnxW6IizAJrofsI9FqsgsS
+        pHS3J9pWhj23pdhIM4ZTt10dXMtEqNW+4spkNJ3hWRiFxaGuj7SurunNLvpNouWlh/Fl7wHPyYAX
+        SA3Aq/ScvBB6Aj2QsdAYDXV76v76E+eaMz64ByyEQkPgALzIfPvyJxqoSl9DQ2NkuS2jb6O+/ZlK
+        wEoJEciVDsK/0oGrfqzw1zJUlmJZvU++f8UQABbIQOL5f6MACyVOlsHfC2AhZ6R0u1MXOWZXb+mf
+        qgN7zwochLL8p/+Iy+u9n8+b4ej5fsRlyhwHpEcKXD1m+GJtMQXFvh969i477Cyj76qop/TVI/hJ
+        teNDNiY0rxbfPi0gcZiENe4e1vwI54vTbRmPkkpLOzwuQA5wsMayNbZhc+ABSg9QvAeQYxvS87ng
+        /OTq830Beg4cPLMcxV37kZiaCx+vd4PensuByZ6td8r1ISvuN4oPIQtYHjM3bzc/AQAA///S4eUa
+        bBX5YK4u0oBxWJwRlJpYDInV4BD/AKUhU50Yg4o4AzMaFqOWFoZGRhaUlyI0rU2A9aqBuZGloQm5
+        ATFIawlTPXNLU1MTC3OatReA5YepmZml8eCuJYz0zIAp0QhUSZgPVCUBdFZuQUlIfnZqnnN+KbiY
+        NDSGOQapbEVVYQRXUZJfkpiDImlmgZDEVQPpYLG+2AXovMwc1NIIpcgGFtWJsIAOcY1AjQugS1D8
+        gCgWoaxYXL6irsVGeCyGdv1QA9PEeCjWxwAAAAD//4oFAAAA//8DAM9yngRYDwAA
     headers:
       Alt-Svc:
       - h3=":443"; ma=2592000,h3-29=":443"; ma=2592000
@@ -60,11 +57,11 @@ interactions:
       Content-Type:
       - application/json; charset=UTF-8
       Date:
-      - Wed, 22 Oct 2025 23:16:07 GMT
+      - Fri, 14 Nov 2025 20:58:57 GMT
       Server:
       - ESF
       Server-Timing:
-      - gfet4t7; dur=898
+      - gfet4t7; dur=1141
       Transfer-Encoding:
       - chunked
       Vary:
@@ -81,7 +78,7 @@ interactions:
       code: 200
       message: OK
 - request:
-    body: '{"model": "gemini-2.5-flash", "project": "prismatic-acronym-xzpzh", "user_prompt_id":
+    body: '{"model": "gemini-2.5-flash", "project": "CENSORED-PROJECT-ID", "user_prompt_id":
       "CENSORED-USER-PROMPT-ID", "request": {"contents": [{"role": "user", "parts":
       [{"text": "Two names for a pet pelican"}]}, {"role": "model", "parts": [{"text":
       ""}, {"function_call": {"name": "pelican_name_generator", "args": {}}}, {"function_call":
@@ -116,18 +113,19 @@ interactions:
   response:
     body:
       string: !!binary |
-        H4sIAAAAAAAC/1xQwU6DQBC98xVkz9LAIkK5Na3RHlpjQrSxacyUHdqNsJDdRWtM/10WtgZ7msx7
-        8968me2P47pEompqoZCkruk7JAfBOAONqsO2PeZabuBroVHoP4GFZV0aE1LVDEtyM6YakHpsdm1p
-        xzSejCuZH0GW3fZ//HnU7ZxrdKi7YStpFRxwhRq6K2CUk2gJRcHz7Lvpoz6t3xf3q9l6Maw6W3l/
-        wQtKxWthxg5YccE9Oom8ogR1tMeRXGL3pYxXvRn1aeQFvkdpRsM0uEv9ZOL7cRLEbxfB5ddLZgTt
-        wyaC5cc0YO3pc+a9xsXj1/zZROmDmLC5Hd3fJmwfJlGIEEfFNCbO2fkFAAD//9RVz2+CMBS+L9n/
-        YDwzQwUqHhk2QIJgaF30sJC6VEeGskC3xMP+91UcSnUuRlmy3dr09b3vR/I95fbmrxrYEgBamC6X
-        685ZJu5ntedC6eI5YrTYao9JOKphaRd0zvg6ojxZLQ4RyXiEDJwtsny9aeNa0TC2LYKcMJrGrjjE
-        eISQ7Uo8N0zzbEZnSZrw8l+AHN9zvHsf/VCIn7J8o5wq/FaB2e2pAGgH5QV7Z/lX0xIMRg8o8sg0
-        Pj2i+lPrDwA0dc0wa4UfyiUSDKzAQVE4xrEdBgQFpEkhYEeFfd0A7E7tXaLD1ezEzcJ42DCt0l8D
-        6NCAhv47/mpqF/b64GoBMJqMLd+fxmgy8j3ba16HrgkhAOZFOtTp7c5VHpwZ5QLX8pWT7IWt7Oyt
-        TDMdVGBqEShX7Ap4xmkqvxn7x1NrQvlmejEQ6JJUDiMpWEWg0kpogiayFwKJROFotT2eItXs4OO5
-        /3AnfgIAAP//igUAAAD//wMAdBGLk9QIAAA=
+        H4sIAAAAAAAC/7RUW2+iQBR+91eQeS5mBhgufaM6URJFI7RRm4ZMYaAkAmaY7dZs/O/LTRdNtg+1
+        TSA51++c8x04z38GkgQ4K/dFXjJwL9V6ZQlpHqURFaysbM+NTep8rb/IBcvFOaEz82JXg4CsiNgO
+        3PVde8pFH+wasgsT7KNGBVPGmUSrV/wupJxmrJTigksUXCQce9rLWT7+KwxKGjNxWFGR5sl1+cvi
+        1cyCJQU/NOXt1TwY2T6ZLFabYFoJgbckZDS9GKoeixev9DXdpaLJc8lk5kychxn5JNALC17TBIcQ
+        Qg2rmoUt4yq8ZO+Md6BNMx55IivH3wT/L3HK6eFbWLFMS9N7gce7r1Awtt0JWS0evWC0cH3i+t9J
+        BBoaCGEdMxnir/Bw83SVZnve/JvHavarGqqFTKz/zH4NVTcUDd1MgEfWj/ZstgnIejlzRs4P8KAj
+        RUHWres9y6ffvbW8tLjgV0kTNmeCVreL9q4TEJzGcRr6h31zoBZuMCZz2x234B1p7d16YrxMi7wO
+        S1iW5qmsDLEc72j51g0LQs4qKv00a8AUqGAZIRlpvgLvsVk9Q4hg9UlvTwmnC+tEdQLZJ2u6cZcm
+        zT7e7cDiW337YNetNI3UzYZdqGFAjCJThdCguokVMDgO/gIAAP//0uHlGqzFtkJBagkQ52QCXWKl
+        4JyRWJQDLLmBrlIITszNrdQjtfhOAwZ/cUZQamIxJEKCQ/wDlIZI8W6oZ2pgaWFkPnDFGk0LbTM9
+        S2NDUwNjoO/IqrwGaaFtomdkYm5oZmhMbqwRLrRBdb45sNwe3KW2hZ6loZEBuFImq/KiRqkNdFZu
+        QUlIfnZqnnN+KbjgMjGEOQaptENRYWgMV1GSX5KYgyJpaoKQxFUl6GCxvtgF6LzMHNQyBqUQBRae
+        ibCADnGNQI0LoEtQ/IAo7KCsWFy+oqrFhsaYFg/BChAAAAD//4oFAAAA//8DAHPdEem3DAAA
     headers:
       Alt-Svc:
       - h3=":443"; ma=2592000,h3-29=":443"; ma=2592000
@@ -136,11 +134,11 @@ interactions:
       Content-Type:
       - application/json; charset=UTF-8
       Date:
-      - Wed, 22 Oct 2025 23:16:08 GMT
+      - Fri, 14 Nov 2025 20:58:58 GMT
       Server:
       - ESF
       Server-Timing:
-      - gfet4t7; dur=377
+      - gfet4t7; dur=474
       Transfer-Encoding:
       - chunked
       Vary:

@@ -120,7 +120,7 @@ def _load_gemini_cli_credentials() -> Credentials | None:
     try:
         with open(gemini_cli_oauth_path, "r") as f:
             creds_data = json.load(f)
-        return credentials_from_oauth_creds_json(creds_data)
+        return credentials_from_oauth_creds_data(creds_data)
     except (json.JSONDecodeError, IOError, AttributeError, OAuthError) as e:
         logger.warning(f"Failed to load or parse gemini-cli credentials: {e}")
         return None
@@ -186,8 +186,13 @@ def authenticate(
 
     # --- Step 1: Try to load credentials from this plugin's cache ---
     logger.info("Checking for cached credentials...")
-    cached_creds = get_oauth_credentials()
-    credentials = _validate_and_refresh_creds(cached_creds)
+    credentials = None
+    try:
+        cached_creds = get_oauth_credentials()
+        credentials = _validate_and_refresh_creds(cached_creds)
+    except AuthenticationError as e:
+        logger.info("Couldn't load existing credentials: {e}")
+        pass
     if credentials:
         if _resolve_bool(reauthenticate):
             logger.info("Re-authentication forced, skipping cache.")
@@ -223,7 +228,7 @@ def authenticate(
     logger.error("Authentication failed: No valid credentials could be found or obtained.")
     raise AuthenticationError("Failed to authenticate. No valid credentials could be found or obtained.")
 
-def credentials_from_oauth_creds_json(creds_data):
+def credentials_from_oauth_creds_data(creds_data):
     # TODO: use from_authorized_user_info ?
     try:
         # Create Credentials object
@@ -238,12 +243,13 @@ def credentials_from_oauth_creds_json(creds_data):
             token_uri="https://oauth2.googleapis.com/token",
             client_id=CENSORED-CLIENT-ID
             client_secret=CENSORED-CLIENT-SECRET
-            scopes=" ".join(SCOPES),
+            scopes=SCOPES,
             expiry=expiry,
         )
         return credentials
 
-    except KeyError as e:
+    except Exception as e:
+        raise AuthenticationError(f"Error converting creds_data to Credentials: {e}")
         return None
 
 def get_oauth_credentials():
@@ -257,7 +263,7 @@ def get_oauth_credentials():
     """
     creds_data = _load_json_from_plugin_cache(OAUTH_CREDENTIALS_FILE)
 
-    credentials = credentials_from_oauth_creds_json(creds_data)
+    credentials = credentials_from_oauth_creds_data(creds_data)
 
     # If token is expired, try to refresh it
     if credentials and credentials.token_state != TokenState.FRESH and credentials.refresh_token:
@@ -267,7 +273,7 @@ def get_oauth_credentials():
             refreshed_creds_data = {
                 "access_token": credentials.token,
                 "refresh_token": credentials.refresh_token,
-                "scope": " ".join(credentials.scopes) if credentials.scopes else "",
+                "scope": credentials.scopes if credentials.scopes else " ".join(SCOPES),
                 "token_type": "Bearer",
                 "id_token": credentials.id_token,
                 "expiry_date": int(credentials.expiry.timestamp() * 1000) if credentials.expiry else None,
@@ -341,7 +347,6 @@ def _clear_plugin_cache():
 def _load_json_from_plugin_cache(filename):
     plugin_cache_dir = _plugin_cache_dir()
     data_path = plugin_cache_dir / filename
-
     try:
         with open(data_path, "r") as f:
             return json.load(f)
@@ -385,7 +390,7 @@ def _save_creds_to_plugin_cache(credentials):
         "refresh_token": credentials.refresh_token,
         "id_token": credentials.id_token,
         "token_uri": credentials.token_uri,
-        "scopes": credentials.scopes,
+        "scope": " ".join(credentials.scopes),
         "expiry_date": int(credentials.expiry.timestamp() * 1000),
     }
     with open(oauth_file, "w") as f:

@@ -10,7 +10,7 @@
 - Update installation instructions (no PyPI yet, install from git)
 - Document OAuth authentication flow (`gemini auth`)
 - Update model prefix from `gemini/` to `code-assist/`
-- Remove API key instructions (OAuth only)
+
 - Update repository URLs
 - Remove cogapp model listing (not needed for this plugin)
 - Add Code Assist API specific documentation
@@ -18,7 +18,7 @@
 ### 3. Fix test imports
 - Update `tests/test_gemini.py` line 10: `from llm_gemini` → `from llm_gemini_code_assist`
 - Update test model names to use `code-assist/` prefix
-- Remove tests that rely on API keys (OAuth only)
+
 
 ### 4. Update GitHub workflows
 - Fix `cache-dependency-path`: `setup.py` → `pyproject.toml`

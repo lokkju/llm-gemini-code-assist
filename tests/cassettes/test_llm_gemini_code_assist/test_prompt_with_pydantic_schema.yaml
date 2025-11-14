@@ -1,6 +1,6 @@
 interactions:
 - request:
-    body: '{"model": "gemini-2.5-flash", "project": "prismatic-acronym-xzpzh", "user_prompt_id":
+    body: '{"model": "gemini-2.5-flash", "project": "CENSORED-PROJECT-ID", "user_prompt_id":
       "CENSORED-USER-PROMPT-ID", "request": {"contents": [{"role": "user", "parts":
       [{"text": "Invent a cool dog"}]}], "safetySettings": [{"category": "HARM_CATEGORY_DANGEROUS_CONTENT",
       "threshold": "BLOCK_NONE"}, {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT",
@@ -32,23 +32,21 @@ interactions:
   response:
     body:
       string: !!binary |
-        H4sIAAAAAAAC/7RVy27iMBTd8xWW14CcFwF2GbAADS8laQVTqsgEA9YEGznuA1X8+zgkMAFpZtGW
-        3X2dk3tOlJunjwoAUNJ0L3hKYRtkua7EhK/Yiiia6trTqQaKXt4XXFGuLoCiLEWSkcCdWNEEVsut
-        PZGqTHZLWYwp+p6xwo8F5GRHFzpeQF/Ev6lawKqOyeZUtLJ4yUQ+4IGlkCsqQSyShFGwY+/gjakt
-        IBy8cC2GHwBZsoSpA1ACLElCeEx196C2jG+A4GDLUsBFSusgfxrQOQF7KQBRICYqzgbh1brHUvZ8
-        iY9/ZcOUrKk6+ERp7K34a+nacUU3Qh4y8X3PH0UdL8S9iT+P+jqIginGnf6VpZmpUiwLXRlujHvD
-        QW/wY4j/MxjEQmYvCdURQq5jmk3LvZlO6SuVBedplwA/Yn8QzqPSE0qQY/UzurreuIf9yUMQdSbj
-        EI/D71anpSEHGY3PqPsHpkRvNWzXsR33yz7ozAuC0V0MQE3Dsu37GGBYVtNCreaXDQjw7MEbDucR
-        nk2Hg87g+32wXbflWs59fEAtw7Vc0yj7cInPdyGvPOds8CXVZ2xEFdEnlpSOKFSSrNcsDg/70x2d
-        jKMuHnnjbv61Ffbm5/WRypQJno1t6I5xVjPrTm2dkHRbLA1jSbXpIdudyExkOjUD1UwrNJy2gdq2
-        W0dOq9G0fp0B5x/BYJUBVmjWID+ngVerGXbTm77aPcw8ke1yrBwrfwAAAP//7JY9T8MwEIZ3JP6D
-        1SVLWjVOadwZkNhAkIEBBje5JAYnjnIOUgb+O5cGWixRxFelItgi2bp778PvE//wYF/pwbJG4RIA
-        iQTpWKqGrD5lhewtHVVeSds2wDxsa2gKII/XveIq91hpHogLmSWW9JPuGLZJAohZqwcKTNgZeBRH
-        I5GBJdBYlSlImaU4su5YanKfLRsK1oPlzqyAswplKmAFsQnA4kCnnjmJ1CVLoQRZmUFmrWXXp8Na
-        0aZNbkaPn8VORtuAxSVIHPbjKj6/GP1j6WN17RRLYhIJIRYBjKc7ciM+n0YzPv+zVKIGhHwxDb7d
-        gF9OJcHDmQidPfgqlEh/WdvY3EN1bNqVbwfrt/nK7J0bIljfsMZK7RxyfrQ53YY8/438eEL6lHZN
-        y4EIwUO+jCQ+vXanRlKcIjbu+fx1u62sH00sgncS28K0eWHdbgY82sM/gCcAAAD//4oFAAAA//8D
-        APsAsLc/DgAA
+        H4sIAAAAAAAC/6yU247aMBCG7/cpLF9DlCOnuxQiiMRJJLuCLqvIJA5rEWxkm7Z0xbvXOUABqb0A
+        kCJ5xjN/5vsj5v3rBQDIsdgxKjDsgDxWmRjRhCRIYqFy70UOVHflPaMSU3luqNKcZbkI3LIEZ7B2
+        ebVDXF6K3UpWZRL/ylXh15ICsIQUbfFSxUs4Y/EGyyWslRdoXeStKlwRVpa5IEGc0DWIGV8TsKHs
+        JwUp4+CTCCA2imjFEE/yCrEhWSaAIlUP2FPFTA8ArUhG5AFIBgQlaQqvJjxeRB/n8/EvKRQoxfIw
+        Q1K94pb3mlaZLPGa8UPOO3Bno6jrhl5/MltEA3WIgqnndQdXLuY+craqZsz7xl5/6Pf9b0PvP4WB
+        MiP/LoamN23Ddpq4rjdvygX+gXklWgwTeG/ezA8X0cUrLlqOtXvAeu64780mr0HUnYxDbxw+E8/U
+        WupnGYqucQ/dP3pO8rqmm7phtNuW87APKnKDYPRkA9paw2lYtnWvAQ9jBd781R0OF5E3nw79rv9U
+        OkszWqZhtm2F13oU73w+/YvLzEepC/dCLZgRlkjtQHSx5aDkKE1JHB52xaKbjKOeN3LHvVK8cq3c
+        f2+YC8JoXrbGW0JJ3dScepoh8VnRwphj5WVItoWYqZtO3TDqhh2aesdpdRxH0+22oevfTw2nTe0n
+        eUPPWc9R/Dty2d7PJmy6lz334C7yWYpJ8mnjqjZxrBSjBrZt004aNoIvx5c/AAAA///c1b0KwjAQ
+        AOBd8B1CFxcJ1vZqM6vgpmgHBx2ixlYaGyHp6Lt7/htRUVH82QpJuOtd8l25WPhW/4nKDTGJICOh
+        DUrMx6mmpCVKCDaRaswlkSIWaPcs2+ybqJhgjJQOnEG2fFTtKbZHJ13B9bZhvajdcX5EdYbvwmeV
+        NXvs/1D3aQhByJ5983eYDqEHHvtW0z0aMLcKteBjM/utqPuUMUDX4RW391nUMa/5wkQqFVld5RvW
+        3EOtTyy0dsBhxDpGGS7PjofH1Wsjo3whvm5gfjNpG2MZi7byfamjZt/uBqZiZXHEbvc1vPZbLw0M
+        wY3AJlF5nBi7mm4FfnGCrgAAAP//igUAAAD//wMARw0x8UENAAA=
     headers:
       Alt-Svc:
       - h3=":443"; ma=2592000,h3-29=":443"; ma=2592000
@@ -57,11 +55,11 @@ interactions:
       Content-Type:
       - application/json; charset=UTF-8
       Date:
-      - Thu, 23 Oct 2025 15:10:49 GMT
+      - Fri, 14 Nov 2025 20:58:56 GMT
       Server:
       - ESF
       Server-Timing:
-      - gfet4t7; dur=2525
+      - gfet4t7; dur=1643
       Transfer-Encoding:
       - chunked
       Vary:

@@ -1,45 +1,54 @@
 interactions:
 - request:
-    body: grant_type=refresh_token&client_id=CENSORED-CLIENT-ID&client_secret=CENSORED-CLIENT-SECRET&refresh_token=CENSORED-REFRESH-TOKEN&scope=o+p+e+n+i+d+++h+t+t+p+s+%3A+%2F+%2F+w+w+w+.+g+o+o+g+l+e+a+p+i+s+.+c+o+m+%2F+a+u+t+h+%2F+c+l+o+u+d+-+p+l+a+t+f+o+r+m+++h+t+t+p+s+%3A+%2F+%2F+w+w+w+.+g+o+o+g+l+e+a+p+i+s+.+c+o+m+%2F+a+u+t+h+%2F+u+s+e+r+i+n+f+o+.+e+m+a+i+l+++h+t+t+p+s+%3A+%2F+%2F+w+w+w+.+g+o+o+g+l+e+a+p+i+s+.+c+o+m+%2F+a+u+t+h+%2F+u+s+e+r+i+n+f+o+.+p+r+o+f+i+l+e
+    body: '{"model": "gemini-2.5-flash-lite", "project": "CENSORED-PROJECT-ID", "user_prompt_id":
+      "CENSORED-USER-PROMPT-ID", "request": {"contents": [{"role": "user", "parts":
+      [{"text": "Most popular search engine, just the name"}]}], "safetySettings":
+      [{"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"},
+      {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"},
+      {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"}, {"category":
+      "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"}]}}'
     headers:
-      Accept:
+      accept:
       - '*/*'
-      Accept-Encoding:
+      accept-encoding:
       - gzip, deflate
-      Connection:
+      authorization:
+      - CENSORED-OAUTH-TOKEN
+      connection:
       - keep-alive
-      Content-Length:
-      - '521'
-      Content-Type:
-      - application/x-www-form-urlencoded
-      User-Agent:
-      - python-requests/2.32.5
-      x-goog-api-client:
-      - gl-python/3.11.10 auth/2.43.0 cred-type/u
+      content-length:
+      - '523'
+      content-type:
+      - application/json
+      host:
+      - cloudcode-pa.googleapis.com
+      user-agent:
+      - python-httpx/0.28.1
     method: POST
-    uri: https://oauth2.googleapis.com/token
+    uri: https://cloudcode-pa.googleapis.com/v1internal:streamGenerateContent
   response:
     body:
-      string: "{\n  \"error\": \"invalid_scope\",\n  \"error_description\": \"Some
-        requested scopes were invalid. {invalid\\u003d[a, c, d, e, f, g, h, i, l,
-        m, -, n, ., o, /, p, r, s, t, u, w, :]}\",\n  \"error_uri\": \"https://developers.google.com/identity/protocols/oauth2\"\n}"
+      string: !!binary |
+        H4sIAAAAAAAC/6xSy26DMBC88xXI5xJhElLgFpWo6iEPtaiKEkWRYwyxCjbCjtq0yr/X5hVo1Vtv
+        9s7uzO7s7r4M0wQlEQVngoDA1H8VwYjFNEaSCBXbVTGzwWqcM0mY7AqacMkzTQJyHpMM3PWhApWy
+        T/aTskmT5EOzgkfOU8U1gK+93757X28yIKGMitMzQYIzzfISrdYtR129r7PBWaCULIhEakjUGwMU
+        Jc8LGfE3wh74uRrRaxV6tgwSYJcguUTZAPNvWImShOLoUlQerZaHcL6YLcPOp762CFVvNBs6NvBa
+        eYwyKi+aK5pvoqHdcjDAzazmtf9rpH/Vhb91jd7K6jN5JaWg9bpSkqsFWs7ItZIMiZOldEjDD3BJ
+        VJcRzSv3HNtxLQgtOIkcO3C9wB2PfHs6htNtW9Be9VOsC8JtukH4wpeT9UEc39fM/4y92UJfR9WO
+        Xg9uct1kjB3sx/BoQ/ve84FxNb4BAAD//4oFAAAA//8DAMO8GWQrAwAA
     headers:
       Alt-Svc:
       - h3=":443"; ma=2592000,h3-29=":443"; ma=2592000
-      Cache-Control:
-      - no-cache, no-store, max-age=0, must-revalidate
       Content-Encoding:
       - gzip
       Content-Type:
-      - application/json; charset=utf-8
+      - application/json; charset=UTF-8
       Date:
-      - Fri, 14 Nov 2025 00:46:05 GMT
-      Expires:
-      - Mon, 01 Jan 1990 00:00:00 GMT
-      Pragma:
-      - no-cache
+      - Fri, 14 Nov 2025 20:58:54 GMT
       Server:
-      - scaffolding on HTTPServer2
+      - ESF
+      Server-Timing:
+      - gfet4t7; dur=869
       Transfer-Encoding:
       - chunked
       Vary:
@@ -53,6 +62,6 @@ interactions:
       X-XSS-Protection:
       - '0'
     status:
-      code: 400
-      message: Bad Request
+      code: 200
+      message: OK
 version: 1
