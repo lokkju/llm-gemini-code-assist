@@ -7,13 +7,20 @@ import json
 import os
 import pytest
 import pydantic
-from llm_gemini_code_assist import cleanup_schema, get_oauth_token, get_oauth_credentials, OAuthError, _SharedGemini, OAUTH_CREDENTIALS_FILE, _save_json_to_plugin_cache, _clean_plugin_cache, _load_json_from_plugin_cache
+from llm_gemini_code_assist import cleanup_schema, get_oauth_token, get_oauth_credentials, OAuthError, _SharedGemini, OAUTH_CREDENTIALS_FILE, _save_json_to_plugin_cache, _clean_plugin_cache, _load_json_from_plugin_cache, authenticate
 from unittest.mock import patch
 from pathlib import Path
 import textwrap as tw
 from tests.asserts import assert_dict_contains, assert_structure_matches, assert_gemini_2_5_flash_lite_response
 
 nest_asyncio.apply()
+
+@pytest.mark.vcr
+@pytest.mark.dependency()
+@pytest.mark.usefixtures("mock_llm_user_path")
+def test_authenticate(mock_llm_user_path):
+    credentials = authenticate(reauthenticate=False, use_gemini_cli_creds=False, use_oauth=False)
+    assert credentials.valid
 
 @pytest.mark.vcr
 def test_prompt_sync():

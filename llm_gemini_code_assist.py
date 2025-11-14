@@ -17,6 +17,7 @@ from google.oauth2.credentials import Credentials
 from google.auth.credentials import TokenState
 from google.auth.transport.requests import Request as GoogleAuthRequest
 from google_auth_oauthlib.flow import InstalledAppFlow
+from google.auth.exceptions import RefreshError, OAuthError
 
 logger = logging.getLogger(__name__)
 
@@ -66,43 +67,69 @@ SCOPES = [
     "https://www.googleapis.com/auth/userinfo.profile",
 ]
 
-#TODO: remove?
-class OAuthError(llm.ModelError):
-    """Raised when OAuth token operations fail"""
-    pass
-
 class AuthenticationError(llm.ModelError):
     """Custom exception for all authentication-related failures."""
     pass
 
-def authenticate(reauthenticate=False, use_gemeini_cli_creds=False, use_oauth=False):
-    """Authenticate with Google OAuth for Code Assist API access"""
-    # Step 1: Try to load existing credentials
-    credentials = get_oauth_credentials()
-    if credentials and credentials.valid:
-        click.echo("✓ Already authenticated with valid OAuth credentials.")
-        if not click.confirm("Are you sure you want to re-authenticate?", default=False):
-            raise click.Abort()
+def _resolve_bool(arg):
+  """
+  Helper function to resolve a boolean or callable.
+  If 'arg' is a function, it's called.
+  If 'arg' is a boolean, it's returned directly.
+  """
+  return arg() if callable(arg) else arg
 
-    # Step 2: look for existing gemini-cli credentials
+def _validate_and_refresh_creds(credentials: Credentials | None) -> Credentials | None:
+    """
+    Checks if credentials are valid. If expired, attempts to refresh them.
+    Returns valid Credentials or None. Logs issues.
+    """
+    if not credentials:
+        return None
+
+    try:
+        if credentials.expired:
+            logger.info("Cached credentials expired. Attempting to refresh...")
+            credentials.refresh(GoogleAuthRequest())
+            logger.info("Credentials refreshed successfully.")
+
+        if credentials.valid:
+            return credentials
+        else:
+            logger.warning("Credentials are invalid and could not be refreshed.")
+            return None
+
+    except RefreshError as e:
+        # This is not an exceptional failure for this function;
+        # it just means the creds are bad and we should try other methods.
+        logger.warning(f"Failed to refresh credentials: {e}. Re-authentication will be required.")
+        return None
+    except Exception as e:
+        # Log unexpected errors but still return None to allow fallback
+        logger.error(f"An unexpected error occurred during credential validation: {e}", exc_info=True)
+        return None
+
+def _load_gemini_cli_credentials() -> Credentials | None:
+    """Attempts to load credentials from the gemini-cli cache. Logs issues."""
     gemini_cli_oauth_path = Path.home() / ".gemini" / OAUTH_CREDENTIALS_FILE
-    if gemini_cli_oauth_path.exists():
-        click.echo(f"Found existing gemini-cli OAuth credentials at {gemini_cli_oauth_path}.")
-        if click.confirm("Do you want to use attempt to use these to authenticate?", default=True):
-            try:
-                with open(gemini_cli_oauth_path, "r") as f:
-                    creds_data = json.load(f)
-                credentials = credentials_from_oauth_creds_json(creds_data)
-                print(credentials.expiry)
-                raise click.Abort()
+    if not gemini_cli_oauth_path.exists():
+        logger.debug("gemini-cli credentials path not found.")
+        return None
 
-                if credentials and credentials.valid:
-                    click.echo("✓ Found valid OAuth credentials from gemini-cli.")
-                    _save_creds_to_plugin_cache(credentials)
-                    return credentials
-            except (json.JSONDecodeError, IOError, AttributeError, OAuthError) as e:
-                click.echo(f"✗ Failed to load gemini-cli OAuth credentials: {e}; Proceeding to full authentication flow.")
+    logger.info(f"Found gemini-cli credentials at {gemini_cli_oauth_path}.")
+    try:
+        with open(gemini_cli_oauth_path, "r") as f:
+            creds_data = json.load(f)
+        return credentials_from_oauth_creds_json(creds_data)
+    except (json.JSONDecodeError, IOError, AttributeError, OAuthError) as e:
+        logger.warning(f"Failed to load or parse gemini-cli credentials: {e}")
+        return None
 
+def _run_oauth_flow() -> Credentials:
+    """
+    Runs the full, browser-based OAuth 2.0 flow.
+    Raises AuthenticationError on failure.
+    """
     client_secrets = {
         "installed": {
             "client_id": CLIENT_ID,
@@ -112,13 +139,8 @@ def authenticate(reauthenticate=False, use_gemeini_cli_creds=False, use_oauth=Fa
         }
     }
 
-    flow = InstalledAppFlow.from_client_config(
-        client_secrets,
-        scopes=SCOPES,
-    )
-
-    click.echo("\nCode Assist authentication required.")
-    click.echo("Opening browser for authentication.")
+    flow = InstalledAppFlow.from_client_config(client_secrets, scopes=SCOPES)
+    logger.info("Starting OAuth 2.0 flow...")
 
     try:
         credentials = flow.run_local_server(
@@ -127,13 +149,79 @@ def authenticate(reauthenticate=False, use_gemeini_cli_creds=False, use_oauth=Fa
             success_message="Authentication successful. You can close this window.",
             open_browser=True,
         )
-    except Exception as e:
-        raise click.ClickException(f"Authentication failed: {e}")
-    if not credentials or not credentials.valid:
-        raise click.ClickException("Failed to obtain valid OAuth credentials.")
-    _save_creds_to_plugin_cache(credentials)
-    click.echo("\n✓ Authentication successful!")
 
+        if credentials and credentials.valid:
+            logger.info("OAuth flow completed successfully.")
+            return credentials
+        else:
+            logger.error("OAuth flow finished but did not return valid credentials.")
+            raise AuthenticationError("Failed to obtain valid credentials from OAuth flow.")
+
+    except Exception as e:
+        # Catch exceptions during the flow (e.g., user closes browser, port in use)
+        logger.error(f"Authentication flow failed: {e}", exc_info=True)
+        raise AuthenticationError(f"Authentication flow failed: {e}") from e
+
+# --- Main Authenticate Function ---
+
+def authenticate(
+    reauthenticate: bool = False,
+    use_gemini_cli_creds: bool = False,
+    use_oauth: bool = True
+) -> Credentials:
+    """
+    Authenticate with Google OAuth, following a structured credential lookup.
+
+    Flow:
+    1. Plugin Cache: Check for valid/refreshable cached credentials (unless reauthenticate=True).
+    2. Gemini-CLI Cache: If enabled, check for valid/refreshable gemini-cli credentials.
+    3. OAuth Flow: If enabled, run the full browser-based OAuth flow as a last resort.
+
+    Returns:
+        Credentials: A valid google.oauth2.credentials.Credentials object.
+
+    Raises:
+        AuthenticationError: If authentication fails at all stages.
+    """
+
+    # --- Step 1: Try to load credentials from this plugin's cache ---
+    logger.info("Checking for cached credentials...")
+    cached_creds = get_oauth_credentials()
+    credentials = _validate_and_refresh_creds(cached_creds)
+    if credentials:
+        if _resolve_bool(reauthenticate):
+            logger.info("Re-authentication forced, skipping cache.")
+        else:
+            logger.info("Using valid cached OAuth credentials.")
+            _save_creds_to_plugin_cache(credentials) # Save refreshed token
+            return credentials
+    else:
+        logger.info("No valid cached credentials found.")
+
+    # --- Step 2: Try to load credentials from gemini-cli cache ---
+    if _resolve_bool(use_gemini_cli_creds):
+        logger.info("Checking for gemini-cli credentials...")
+        gemini_creds = _load_gemini_cli_credentials()
+        credentials = _validate_and_refresh_creds(gemini_creds)
+        if credentials:
+            logger.info("Loaded and validated credentials from gemini-cli.")
+            _save_creds_to_plugin_cache(credentials) # Save to our plugin cache
+            return credentials
+
+    # --- Step 3: Run the full OAuth flow ---
+    if _resolve_bool(use_oauth):
+        # This function will return credentials on success or raise AuthenticationError on failure.
+        credentials = _run_oauth_flow()
+
+        # If we get here, the flow was successful
+        logger.info("Authentication successful via new OAuth flow.")
+        _save_creds_to_plugin_cache(credentials)
+        return credentials
+
+    # --- Final Step: Failure ---
+    # This is reached if all enabled methods fail.
+    logger.error("Authentication failed: No valid credentials could be found or obtained.")
+    raise AuthenticationError("Failed to authenticate. No valid credentials could be found or obtained.")
 
 def credentials_from_oauth_creds_json(creds_data):
     # TODO: use from_authorized_user_info ?
@@ -186,7 +274,7 @@ def get_oauth_credentials():
             }
             _save_json_to_plugin_cache(OAUTH_CREDENTIALS_FILE, refreshed_creds_data)
         except Exception as e:
-            raise OAuthError(
+            raise AuthenticationError(
                 f"Failed to refresh OAuth token: {e}. "
                 "Please reauthenticate using: `llm gemini-ca auth`"
             )
@@ -196,7 +284,7 @@ def get_oauth_credentials():
     # there's no refresh token, we'll also raise an error.
     if credentials and not credentials.valid:
         if credentials.expired and not credentials.refresh_token:
-            raise OAuthError(
+            raise AuthenticationError(
                 "OAuth token is expired and no refresh_token is available. "
                 "Please reauthenticate using: `llm gemini-ca auth`"
             )
@@ -347,7 +435,7 @@ def get_code_assist_project(credentials):
         "Authorization": f"Bearer {credentials.token}",
         "Content-Type": "application/json",
     }
-    print(headers)
+
     body = {
         "cloudaicompanionProject": "",
         "metadata": {
@@ -934,63 +1022,10 @@ def register_commands(cli):
 
     @gemini_ca.command()
     def auth():
-        """Authenticate with Google OAuth for Code Assist API access"""
-
-        # Step 1: Try to load existing credentials
-        credentials = get_oauth_credentials()
-        if credentials and credentials.valid:
-            click.echo("✓ Already authenticated with valid OAuth credentials.")
-            if not click.confirm("Are you sure you want to re-authenticate?", default=False):
-                raise click.Abort()
-
-        # Step 2: look for existing gemini-cli credentials
-        gemini_cli_oauth_path = Path.home() / ".gemini" / OAUTH_CREDENTIALS_FILE
-        if gemini_cli_oauth_path.exists():
-            click.echo(f"Found existing gemini-cli OAuth credentials at {gemini_cli_oauth_path}.")
-            if click.confirm("Do you want to use attempt to use these to authenticate?", default=True):
-                try:
-                    with open(gemini_cli_oauth_path, "r") as f:
-                        creds_data = json.load(f)
-                    credentials = credentials_from_oauth_creds_json(creds_data)
-                    print(credentials.expiry)
-                    raise click.Abort()
-
-                    if credentials and credentials.valid:
-                        click.echo("✓ Found valid OAuth credentials from gemini-cli.")
-                        _save_creds_to_plugin_cache(credentials)
-                        return credentials
-                except (json.JSONDecodeError, IOError, AttributeError, OAuthError) as e:
-                    click.echo(f"✗ Failed to load gemini-cli OAuth credentials: {e}; Proceeding to full authentication flow.")
-
-        client_secrets = {
-            "installed": {
-                "client_id": CLIENT_ID,
-                "client_secret": CLIENT_SECRET,
-                "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-                "token_uri": "https://oauth2.googleapis.com/token",
-            }
-        }
-
-        flow = InstalledAppFlow.from_client_config(
-            client_secrets,
-            scopes=SCOPES,
-        )
-
-        click.echo("\nCode Assist authentication required.")
-        click.echo("Opening browser for authentication.")
-
-        try:
-            credentials = flow.run_local_server(
-                port=0,
-                authorization_prompt_message="Please visit this URL to authorize this application: {url}",
-                success_message="Authentication successful. You can close this window.",
-                open_browser=True,
-            )
-        except Exception as e:
-            raise click.ClickException(f"Authentication failed: {e}")
-        if not credentials or not credentials.valid:
-            raise click.ClickException("Failed to obtain valid OAuth credentials.")
-        _save_creds_to_plugin_cache(credentials)
+        reauthenticate = lambda: click.confirm("Already authenticated with valid OAuth credentials. Are you sure you want to re-authenticate?", default=False)
+        use_gemini_cli_creds = lambda: click.confirm("Found existing gemini-cli OAuth credentials. Do you want to use attempt to use these to authenticate?", default=True)
+        use_oauth: bool = True
+        authenticate(reauthenticate, use_gemini_cli_creds, use_oauth)
         click.echo("\n✓ Authentication successful!")
 
     @gemini_ca.command()

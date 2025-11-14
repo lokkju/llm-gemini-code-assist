@@ -5,9 +5,6 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 
 import pytest
 import json
-from datetime import datetime, timedelta
-from unittest.mock import patch, MagicMock
-from google.oauth2.credentials import Credentials
 
 def before_record_request(request):
     if request.body:
@@ -42,61 +39,40 @@ def vcr_config():
         ],
     }
 
-@pytest.fixture(autouse=True)
-def mock_oauth_for_vcr_tests(request):
+@pytest.fixture(scope="module")
+def shared_tmpdir(tmp_path_factory):
     """
-    Automatically mock OAuth credentials and project ID cache for VCR tests.
+    Creates a temporary directory shared across all tests in a module.
 
-    This fixture:
-    1. Detects if the test is marked with @pytest.mark.vcr
-    2. Checks if we're in playback mode (cassette exists or --record-mode=none)
-    3. Mocks get_oauth_credentials() to return mock credentials
-    4. Mocks _load_project_id_cache() to return cached project ID
-
-    This allows tests to run without requiring actual credential files when
-    VCR cassettes are available.
+    The directory is created by the tmp_path_factory and will be unique
+    for each module. It's automatically cleaned up by pytest after
+    all tests in the module have run.
     """
-    # Check if test is marked with vcr
-    vcr_marker = request.node.get_closest_marker('vcr')
-    if not vcr_marker:
-        yield
-        return
+    # Create a base temporary directory for the module
+    module_tmp_dir = tmp_path_factory.mktemp("shared_module_dir")
 
-    # Check if we should mock (cassette exists or --record-mode=none)
-    record_mode = request.config.getoption('--record-mode', default='once')
-    should_mock = record_mode in ['none', 'once']
+    # Yield the path to the tests
+    yield module_tmp_dir
 
-    # For 'once' mode, also check if cassette exists
-    if record_mode == 'once':
-        cassette_dir = os.path.join(
-            os.path.dirname(__file__),
-            'cassettes',
-            request.node.parent.name,
-        )
-        cassette_path = os.path.join(cassette_dir, f"{request.node.name}.yaml")
-        should_mock = os.path.exists(cassette_path)
+    # No cleanup code is needed here; pytest's tmp_path_factory
+    # handles the removal of the directory and its contents.
 
-    if should_mock:
-        # Create mock credentials
-        mock_creds = MagicMock(spec=Credentials)
-        mock_creds.token = "mock-oauth-token"
-        mock_creds.id_token = "mock-id-token"
-        mock_creds.refresh_token = "mock-refresh-token"
-        mock_creds.token_uri = "https://oauth2.googleapis.com/token"
-        mock_creds.valid = True
-        mock_creds.expiry = datetime.now() + timedelta(hours=1)
+@pytest.fixture
+def mock_llm_user_path(shared_tmpdir, monkeypatch):
+    """
+    Creates a dedicated 'llm.datasette.io' user directory inside a
+    temporary folder and sets the LLM_USER_PATH environment variable to it.
+    """
+    # tmp_path is the modern (pathlib.Path) version of tmpdir
+    user_dir = shared_tmpdir / "llm.datasette.io"
+    user_dir.mkdir()
 
-        # Mock get_oauth_credentials
-        with patch('llm_gemini_code_assist.get_oauth_credentials', return_value=mock_creds):
-            # Mock _load_project_id_cache to return a cached project ID
-            # This prevents the API call to get project assignment
-            mock_cache = {
-                "mock-user@example.com": ("prismatic-acronym-xzpzh", "PREMIUM")
-            }
-            with patch('llm_gemini_code_assist._load_project_id_cache', return_value=mock_cache):
-                # Mock get_user_email to return consistent email
-                with patch('llm_gemini_code_assist.get_user_email', return_value="mock-user@example.com"):
-                    yield
-    else:
-        # Not in playback mode, use real credentials
-        yield
+    # monkeypatch automatically reverts this after the test
+    monkeypatch.setenv("LLM_USER_PATH", str(user_dir))
+
+    # We yield the path in case the test wants to use it
+    yield user_dir
+
+    # Cleanup is handled automatically by pytest:
+    # - monkeypatch reverts the environment variable.
+    # - tmp_path fixture removes the temporary directory.
