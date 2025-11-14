@@ -1,3 +1,6 @@
+import pytest
+
+
 def _assert_recursive_contains(actual, expected, path=""):
     """
     Internal helper to recursively assert 'actual' contains 'expected'.
@@ -9,7 +12,9 @@ def _assert_recursive_contains(actual, expected, path=""):
     if isinstance(expected, dict):
         # Check that 'actual' is also a dict
         if not isinstance(actual, dict):
-            pytest.fail(f"Type mismatch at path '{path}': Expected dict, got {type(actual).__name__}")
+            pytest.fail(
+                f"Type mismatch at path '{path}': Expected dict, got {type(actual).__name__}"
+            )
 
         # Check all keys from 'expected' exist in 'actual'
         for key, expected_value in expected.items():
@@ -24,11 +29,16 @@ def _assert_recursive_contains(actual, expected, path=""):
     elif isinstance(expected, list):
         # Check that 'actual' is also a list
         if not isinstance(actual, list):
-            pytest.fail(f"Type mismatch at path '{path}': Expected list, got {type(actual).__name__}")
+            pytest.fail(
+                f"Type mismatch at path '{path}': Expected list, got {type(actual).__name__}"
+            )
 
         # Check for exact length match (adjust if partial lists are OK)
         if len(actual) != len(expected):
-            pytest.fail(f"List length mismatch for key: '{path}'. Expected {len(expected)}, got {len(actual)}")
+            pytest.fail(
+                f"List length mismatch for key: '{path}'. "
+                f"Expected {len(expected)}, got {len(actual)}"
+            )
 
         # Recurse for each item in the list
         for i, expected_item in enumerate(expected):
@@ -40,6 +50,7 @@ def _assert_recursive_contains(actual, expected, path=""):
         # Simple value comparison
         if actual != expected:
             pytest.fail(f"Value mismatch for key: '{path}'. Expected '{expected}', got '{actual}'")
+
 
 def assert_dict_contains(actual, expected, path=""):
     """
@@ -57,6 +68,7 @@ def assert_dict_contains(actual, expected, path=""):
     # Call the helper that can handle any nested type
     _assert_recursive_contains(actual, expected, path)
 
+
 def assert_structure_matches(actual, schema, path=""):
     """
     Recursively asserts that the 'actual' data matches the 'schema' structure.
@@ -71,7 +83,9 @@ def assert_structure_matches(actual, schema, path=""):
     # Case 1: Schema is a dictionary
     if isinstance(schema, dict):
         if not isinstance(actual, dict):
-            pytest.fail(f"Type mismatch at path '{path}': Expected dict, got {type(actual).__name__}")
+            pytest.fail(
+                f"Type mismatch at path '{path}': Expected dict, got {type(actual).__name__}"
+            )
 
         # Iterate through the keys defined in the SCHEMA
         for key, sub_schema in schema.items():
@@ -87,7 +101,9 @@ def assert_structure_matches(actual, schema, path=""):
     # Case 2: Schema is a list (defines the structure for all items)
     elif isinstance(schema, list):
         if not isinstance(actual, list):
-            pytest.fail(f"Type mismatch at path '{path}': Expected list, got {type(actual).__name__}")
+            pytest.fail(
+                f"Type mismatch at path '{path}': Expected list, got {type(actual).__name__}"
+            )
 
         # If the schema list is empty (schema=[]), it matches any list (including empty).
         if not schema:
@@ -102,11 +118,18 @@ def assert_structure_matches(actual, schema, path=""):
     # Case 3: Schema is a type (str, int, bool, float, etc.)
     elif isinstance(schema, type):
         if not isinstance(actual, schema):
-            pytest.fail(f"Type mismatch at path '{path}': Expected type {schema.__name__}, got {type(actual).__name__}")
+            pytest.fail(
+                f"Type mismatch at path '{path}': Expected type {schema.__name__}, "
+                f"got {type(actual).__name__}"
+            )
 
     # Case 4: Invalid schema definition
     else:
-        raise TypeError(f"Invalid schema at path '{path}'. Schema must be a dict, list, or type (like str). Got {type(schema)}")
+        raise TypeError(
+            f"Invalid schema at path '{path}'. Schema must be a dict, list, or type (like str). "
+            f"Got {type(schema)}"
+        )
+
 
 def assert_gemini_2_5_flash_lite_response(response):
     expected_response = {
@@ -118,6 +141,7 @@ def assert_gemini_2_5_flash_lite_response(response):
         "modelVersion": "gemini-2.5-flash-lite",
     }
     assert_dict_contains(response.response_json, expected_response)
+
 
 def assert_gemini_2_5_flash_response(response):
     expected_response = {

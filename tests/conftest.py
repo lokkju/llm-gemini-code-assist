@@ -1,10 +1,13 @@
-import sys
 import os
+import sys
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
+import json
 
 import pytest
-import json
+
 
 def before_record_request(request):
     """Censor sensitive data from request bodies before recording/matching"""
@@ -13,24 +16,22 @@ def before_record_request(request):
             body = json.loads(request.body)
             # Censor sensitive fields - these will be censored in both
             # the saved cassette AND during playback matching
-            if 'user_prompt_id' in body:
-                body['user_prompt_id'] = 'CENSORED-USER-PROMPT-ID'
-            if 'project' in body:
-                body['project'] = 'CENSORED-PROJECT-ID'
-            request.body = json.dumps(body).encode('utf-8')
+            if "user_prompt_id" in body:
+                body["user_prompt_id"] = "CENSORED-USER-PROMPT-ID"
+            if "project" in body:
+                body["project"] = "CENSORED-PROJECT-ID"
+            request.body = json.dumps(body).encode("utf-8")
         except (json.JSONDecodeError, AttributeError):
             pass
     return request
+
 
 @pytest.fixture(scope="module")
 def vcr_config():
     return {
         # 1. This prevents your secret token from being saved in the YAML file
-        "filter_headers": [
-            ("authorization", "CENSORED-OAUTH-TOKEN")
-        ],
+        "filter_headers": [("authorization", "CENSORED-OAUTH-TOKEN")],
         "before_record_request": before_record_request,
-
         # 2. This tells VCR to ignore the auth header when matching
         #    This is the key to making playback work!
         "match_on": [
@@ -43,6 +44,7 @@ def vcr_config():
             "body",
         ],
     }
+
 
 @pytest.fixture(scope="module")
 def module_tmp_path(tmp_path_factory):
@@ -57,10 +59,11 @@ def module_tmp_path(tmp_path_factory):
     module_tmp_dir = tmp_path_factory.mktemp("shared_module_dir")
 
     # Yield the path to the tests
-    yield module_tmp_dir
+    return module_tmp_dir
 
     # No cleanup code is needed here; pytest's tmp_path_factory
     # handles the removal of the directory and its contents.
+
 
 @pytest.fixture(scope="module")
 def shared_mock_llm_user_path(module_tmp_path):
@@ -70,6 +73,7 @@ def shared_mock_llm_user_path(module_tmp_path):
     Sets LLM_USER_PATH for the module scope.
     """
     import os
+
     user_dir = module_tmp_path / "llm.datasette.io"
     user_dir.mkdir()
 
@@ -85,6 +89,7 @@ def shared_mock_llm_user_path(module_tmp_path):
     else:
         os.environ["LLM_USER_PATH"] = old_value
 
+
 @pytest.fixture
 def mock_llm_user_path(tmp_path, monkeypatch):
     """
@@ -98,7 +103,8 @@ def mock_llm_user_path(tmp_path, monkeypatch):
     # monkeypatch automatically reverts this after the test
     monkeypatch.setenv("LLM_USER_PATH", str(user_dir))
 
-    yield user_dir
+    return user_dir
+
 
 @pytest.fixture
 def mock_oauth_credentials(monkeypatch, request):
@@ -107,15 +113,19 @@ def mock_oauth_credentials(monkeypatch, request):
     During VCR playback, this mocks the credential loading to prevent any HTTP requests.
     During VCR recording, copies real credentials from the actual environment.
 
-    Requires that LLM_USER_PATH has been set by either shared_mock_llm_user_path or mock_llm_user_path.
+    Requires that LLM_USER_PATH has been set by one of
+    - shared_mock_llm_user_path
+    - mock_llm_user_path.
     """
-    from datetime import datetime, timedelta
     import os
-    import llm
-    import llm_gemini_code_assist
-    from google.oauth2.credentials import Credentials
-    from pathlib import Path
     import shutil
+    from datetime import datetime, timedelta
+    from pathlib import Path
+
+    import llm
+    from google.oauth2.credentials import Credentials
+
+    import llm_gemini_code_assist
 
     # Safety check: ensure LLM_USER_PATH is set to a test directory
     llm_user_path = os.environ.get("LLM_USER_PATH")
@@ -127,7 +137,7 @@ def mock_oauth_credentials(monkeypatch, request):
         )
 
     # Check if the test uses VCR
-    uses_vcr = request.node.get_closest_marker('vcr') is not None
+    uses_vcr = request.node.get_closest_marker("vcr") is not None
 
     # Get the record mode from pytest config
     record_mode = request.config.getoption("--record-mode", default=None)
@@ -137,15 +147,21 @@ def mock_oauth_credentials(monkeypatch, request):
     if uses_vcr:
         # For VCR tests, check record mode first, then cassette existence
         test_name = request.node.name
-        cassette_path = Path(__file__).parent / "cassettes" / "test_llm_gemini_code_assist" / f"{test_name}.yaml"
+        cassette_path = (
+            Path(__file__).parent
+            / "cassettes"
+            / "test_llm_gemini_code_assist"
+            / f"{test_name}.yaml"
+        )
         cassette_exists = cassette_path.exists()
 
         # If record_mode is 'none', we must be in playback mode
         if record_mode == "none":
             if not cassette_exists:
                 pytest.fail(
-                    f"VCR cassette not found at {cassette_path} but --record-mode=none was specified. "
-                    f"Either create the cassette by recording the test first, or use a different record mode."
+                    f"VCR cassette not found at {cassette_path} but --record-mode=none "
+                    "was specified. Either create the cassette by recording the test first, "
+                    "or use a different record mode."
                 )
             is_playback = True
         else:
@@ -170,7 +186,7 @@ def mock_oauth_credentials(monkeypatch, request):
                 client_id=CENSORED-CLIENT-ID
                 client_secret=CENSORED-CLIENT-SECRET
                 scopes=llm_gemini_code_assist.SCOPES,
-                expiry=datetime.utcnow() + timedelta(hours=1)
+                expiry=datetime.utcnow() + timedelta(hours=1),
             )
             return creds
 
@@ -190,24 +206,14 @@ def mock_oauth_credentials(monkeypatch, request):
             return ("mock-project-id", "PREMIUM")
 
         monkeypatch.setattr(
-            llm_gemini_code_assist,
-            'get_oauth_credentials',
-            mock_get_oauth_credentials
+            llm_gemini_code_assist, "get_oauth_credentials", mock_get_oauth_credentials
         )
         monkeypatch.setattr(
-            llm_gemini_code_assist,
-            '_validate_and_refresh_creds',
-            mock_validate_and_refresh_creds
+            llm_gemini_code_assist, "_validate_and_refresh_creds", mock_validate_and_refresh_creds
         )
+        monkeypatch.setattr(llm_gemini_code_assist, "_run_oauth_flow", mock_run_oauth_flow)
         monkeypatch.setattr(
-            llm_gemini_code_assist,
-            '_run_oauth_flow',
-            mock_run_oauth_flow
-        )
-        monkeypatch.setattr(
-            llm_gemini_code_assist,
-            'get_code_assist_project',
-            mock_get_code_assist_project
+            llm_gemini_code_assist, "get_code_assist_project", mock_get_code_assist_project
         )
     else:
         # During recording: copy real credentials from actual environment
@@ -226,11 +232,12 @@ def mock_oauth_credentials(monkeypatch, request):
         try:
             creds_data = json.loads(real_oauth_file.read_text())
             # Validate required fields exist
-            required_fields = ['access_token', 'refresh_token']
+            required_fields = ["access_token", "refresh_token"]
             missing_fields = [field for field in required_fields if field not in creds_data]
             if missing_fields:
                 raise ValueError(
-                    f"OAuth credentials file is missing required fields: {', '.join(missing_fields)}. "
+                    "OAuth credentials file is missing required fields: "
+                    f"{', '.join(missing_fields)}. "
                     "Please run `llm gemini-ca auth` to generate valid credentials."
                 )
 
@@ -245,11 +252,13 @@ def mock_oauth_credentials(monkeypatch, request):
             raise ValueError(
                 f"OAuth credentials file at {real_oauth_file} is not valid JSON: {e}. "
                 "Please run `llm gemini-ca auth` to regenerate credentials."
-            )
+            ) from e
 
         # Copy real credentials to test environment (uses LLM_USER_PATH)
         test_llm_user_dir = llm.user_dir()
-        test_plugin_cache = test_llm_user_dir / llm_gemini_code_assist.GEMINI_CODE_ASSIST_PLUGIN_SLUG
+        test_plugin_cache = (
+            test_llm_user_dir / llm_gemini_code_assist.GEMINI_CODE_ASSIST_PLUGIN_SLUG
+        )
         test_plugin_cache.mkdir(exist_ok=True)
         test_oauth_file = test_plugin_cache / llm_gemini_code_assist.OAUTH_CREDENTIALS_FILE
         shutil.copy(real_oauth_file, test_oauth_file)
@@ -260,4 +269,4 @@ def mock_oauth_credentials(monkeypatch, request):
             test_project_cache = test_plugin_cache / llm_gemini_code_assist.PROJECT_ID_CACHE_FILE
             shutil.copy(real_project_cache, test_project_cache)
 
-    yield
+    return

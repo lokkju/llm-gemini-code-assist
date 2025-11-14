@@ -1,19 +1,37 @@
-from click.testing import CliRunner
-from datetime import datetime
-import llm
-from llm.cli import cli
-import nest_asyncio
 import json
 import os
-import pytest
-import pydantic
-from llm_gemini_code_assist import cleanup_schema, get_oauth_token, get_oauth_credentials, CLIENT_ID, CLIENT_SECRET, SCOPES, AuthenticationError, _SharedGemini, OAUTH_CREDENTIALS_FILE, _save_json_to_plugin_cache, _clean_plugin_cache, _load_json_from_plugin_cache, authenticate
-from unittest.mock import patch
-from pathlib import Path
 import textwrap as tw
-from tests.asserts import assert_dict_contains, assert_structure_matches, assert_gemini_2_5_flash_lite_response
+from datetime import datetime
+from unittest.mock import patch
+
+import llm
+import nest_asyncio
+import pydantic
+import pytest
+from click.testing import CliRunner
+from llm.cli import cli
+
+from llm_gemini_code_assist import (
+    OAUTH_CREDENTIALS_FILE,
+    SCOPES,
+    AuthenticationError,
+    _clean_plugin_cache,
+    _load_json_from_plugin_cache,
+    _save_json_to_plugin_cache,
+    _SharedGemini,
+    authenticate,
+    cleanup_schema,
+    get_oauth_token,
+)
+from tests.asserts import (
+    assert_dict_contains,
+    assert_gemini_2_5_flash_lite_response,
+    assert_structure_matches,
+)
+
 
 nest_asyncio.apply()
+
 
 @pytest.mark.usefixtures("shared_mock_llm_user_path", "mock_oauth_credentials")
 def test_authenticate(shared_mock_llm_user_path):
@@ -26,6 +44,7 @@ def test_authenticate(shared_mock_llm_user_path):
     assert credentials is not None
     assert credentials.valid
 
+
 @pytest.mark.vcr
 @pytest.mark.usefixtures("shared_mock_llm_user_path", "mock_oauth_credentials")
 def test_prompt_sync():
@@ -33,11 +52,14 @@ def test_prompt_sync():
     response = model.prompt("Most popular search engine, just the name", key=None)
     assert "Google" in str(response)
     assert_gemini_2_5_flash_lite_response(response)
-    assert_dict_contains(response.token_details, {
-        "candidatesTokenCount": 1,
-        "promptTokensDetails": [{"modality": "TEXT", "tokenCount": 8}],
-        "candidatesTokensDetails": [{"modality": "TEXT", "tokenCount": 1}],
-    })
+    assert_dict_contains(
+        response.token_details,
+        {
+            "candidatesTokenCount": 1,
+            "promptTokensDetails": [{"modality": "TEXT", "tokenCount": 8}],
+            "candidatesTokensDetails": [{"modality": "TEXT", "tokenCount": 1}],
+        },
+    )
     assert response.input_tokens == 8
     assert response.output_tokens == 1
 
@@ -48,9 +70,7 @@ def test_prompt_sync():
 async def test_prompt_async():
     # And try it async too
     async_model = llm.get_async_model("gemini-ca/gemini-2.5-flash-lite")
-    response = await async_model.prompt(
-        "Most popular search engine, just the name", key=None
-    )
+    response = await async_model.prompt("Most popular search engine, just the name", key=None)
     text = await response.text()
     assert "Google" in str(text)
 
@@ -64,20 +84,21 @@ def test_prompt_with_pydantic_schema():
         bio: str
 
     model = llm.get_model("gemini-2.5-flash-ca")
-    response = model.prompt(
-        "Invent a cool dog", key=None, schema=Dog, stream=False
+    response = model.prompt("Invent a cool dog", key=None, schema=Dog, stream=False)
+    assert_structure_matches(
+        json.loads(str(response)),
+        {
+            "age": int,
+            "bio": str,
+            "name": str,
+        },
     )
-    assert_structure_matches(json.loads(str(response)), {
-        "age": int,
-        "bio": str,
-        "name": str,
-    })
     # assert_gemini_2_5_flash_response(response)
     assert response.input_tokens == 17
 
 
 @pytest.mark.parametrize(
-    "schema,expected",
+    ("schema", "expected"),
     [
         # Test 1: Top-level keys removal
         (
@@ -116,7 +137,8 @@ def test_prompt_with_pydantic_schema():
             {
                 "definitions": {
                     "info": {
-                        "title": "Info title",  # should be removed because it's not inside a "properties" block
+                        # title should be removed because it's not inside a "properties" block
+                        "title": "Info title",
                         "description": "A description",
                         "properties": {
                             "name": {
@@ -166,13 +188,16 @@ def test_cleanup_schema(schema, expected):
 def test_cli_gemini_ca_models():
     runner = CliRunner()
     result = runner.invoke(cli, ["gemini-ca", "models"])
-    assert result.output == tw.dedent("""
+    assert (
+        result.output
+        == tw.dedent("""
     [
       "gemini-2.5-flash",
       "gemini-2.5-flash-lite",
       "gemini-2.5-pro"
     ]
     """).lstrip()
+    )
 
 
 @pytest.mark.vcr
@@ -209,7 +234,8 @@ def test_prompt_tools():
         # The last response is combined
         assert "Sammy" in str(second)
     else:
-        assert False, f"Expected three responses in the chain, got {response_count}"
+        raise AssertionError(f"Expected three responses in the chain, got {response_count}")
+
 
 @pytest.mark.usefixtures("mock_llm_user_path")
 def test_oauth_token_reading():
@@ -221,14 +247,17 @@ def test_oauth_token_reading():
         assert get_oauth_token()
 
     # Test 2: File exists with access_token
-    _save_json_to_plugin_cache(OAUTH_CREDENTIALS_FILE,{
-        "access_token": "test_token_123",
-        "expiry_date": int((datetime.utcnow().timestamp() + 3600) * 1000)
-    })
+    _save_json_to_plugin_cache(
+        OAUTH_CREDENTIALS_FILE,
+        {
+            "access_token": "test_token_123",
+            "expiry_date": int((datetime.utcnow().timestamp() + 3600) * 1000),
+        },
+    )
     assert get_oauth_token() == "test_token_123"
 
     # Test 3: Invalid JSON
-    _save_json_to_plugin_cache(OAUTH_CREDENTIALS_FILE,"not valid json")
+    _save_json_to_plugin_cache(OAUTH_CREDENTIALS_FILE, "not valid json")
     with pytest.raises(AuthenticationError):
         assert get_oauth_token()
 
@@ -239,13 +268,16 @@ def test_oauth_token_refresh_success():
     # Create expired token
     #
     expiry_date = int(datetime.utcnow().timestamp() - 100) * 1000
-    _save_json_to_plugin_cache(OAUTH_CREDENTIALS_FILE,{
-        "access_token": "expired_token",
-        "expiry_date": expiry_date,
-        "refresh_token": "CENSORED-REFRESH-TOKEN",
-        "client_id": "client_id_123",
-        "client_secret": "client_secret_123"
-    })
+    _save_json_to_plugin_cache(
+        OAUTH_CREDENTIALS_FILE,
+        {
+            "access_token": "expired_token",
+            "expiry_date": expiry_date,
+            "refresh_token": "CENSORED-REFRESH-TOKEN",
+            "client_id": "client_id_123",
+            "client_secret": "client_secret_123",
+        },
+    )
 
     # Mock the Credentials.refresh method
     from google.oauth2.credentials import Credentials
@@ -253,9 +285,9 @@ def test_oauth_token_refresh_success():
     def mock_refresh(self, request):
         # Update the token as if refresh succeeded
         self.token = "new_token_789"
-        self.expiry = datetime.now() + __import__('datetime').timedelta(seconds=3600)
+        self.expiry = datetime.now() + __import__("datetime").timedelta(seconds=3600)
 
-    with patch.object(Credentials, 'refresh', mock_refresh):
+    with patch.object(Credentials, "refresh", mock_refresh):
         token = get_oauth_token()
 
         # Verify new token is returned
@@ -266,15 +298,15 @@ def test_oauth_token_refresh_success():
         assert updated_creds["access_token"] == "new_token_789"
         assert "expiry_date" in updated_creds
 
+
 @pytest.mark.usefixtures("mock_llm_user_path")
 def test_oauth_token_refresh_missing_refresh_token(tmpdir, monkeypatch):
     """Test OAuth refresh fails when refresh_token is missing"""
     # Create expired token without refresh_token
     expiry_date = datetime.utcnow().timestamp() - 100
-    _save_json_to_plugin_cache(OAUTH_CREDENTIALS_FILE,{
-        "access_token": "expired_token",
-        "expiry_date": expiry_date
-    })
+    _save_json_to_plugin_cache(
+        OAUTH_CREDENTIALS_FILE, {"access_token": "expired_token", "expiry_date": expiry_date}
+    )
 
     with pytest.raises(AuthenticationError, match="no refresh_token is available"):
         get_oauth_token()
@@ -287,14 +319,17 @@ def test_oauth_token_refresh_failed_request():
 
     # Create expired token
     expiry_date = int(datetime.utcnow().timestamp() - 100) * 1000
-    _save_json_to_plugin_cache(OAUTH_CREDENTIALS_FILE,{
-        "access_token": "expired_token",
-        "expiry_date": expiry_date,
-        "refresh_token": "CENSORED-REFRESH-TOKEN",
-        "client_id": "client_id_123",
-        "client_secret": "client_secret_123",
-        "scope": " ".join(SCOPES)
-    })
+    _save_json_to_plugin_cache(
+        OAUTH_CREDENTIALS_FILE,
+        {
+            "access_token": "expired_token",
+            "expiry_date": expiry_date,
+            "refresh_token": "CENSORED-REFRESH-TOKEN",
+            "client_id": "client_id_123",
+            "client_secret": "client_secret_123",
+            "scope": " ".join(SCOPES),
+        },
+    )
 
     # Google's library will make real request and fail
     with pytest.raises(AuthenticationError, match="invalid_grant"):
@@ -306,10 +341,13 @@ def test_oauth_header_generation():
     """Test that OAuth tokens generate Bearer auth headers"""
 
     # Create valid token
-    _save_json_to_plugin_cache(OAUTH_CREDENTIALS_FILE,{
-        "access_token": "test_oauth_token",
-        "expiry_date": int(datetime.utcnow().timestamp() + 3600) * 1000
-    })
+    _save_json_to_plugin_cache(
+        OAUTH_CREDENTIALS_FILE,
+        {
+            "access_token": "test_oauth_token",
+            "expiry_date": int(datetime.utcnow().timestamp() + 3600) * 1000,
+        },
+    )
 
     # Test with model
     model: _SharedGemini = llm.get_model("gemini-2.5-flash-lite-ca")
@@ -321,7 +359,7 @@ def test_oauth_header_generation():
 
 @pytest.mark.skipif(
     os.environ.get("PYTEST_GEMINI_OAUTH_TOKEN") is None,
-    reason="This is a live integration test and requires PYTEST_GEMINI_OAUTH_TOKEN"
+    reason="This is a live integration test and requires PYTEST_GEMINI_OAUTH_TOKEN",
 )
 @pytest.mark.asyncio
 @pytest.mark.usefixtures("mock_llm_user_path")
@@ -333,10 +371,13 @@ async def test_oauth_integration():
     oauth_token = os.environ.get("PYTEST_GEMINI_OAUTH_TOKEN", "oauth-test-token")
 
     # Create OAuth cache file with token
-    _save_json_to_plugin_cache(OAUTH_CREDENTIALS_FILE,{
-        "access_token": oauth_token,
-        "expiry_date": int(datetime.utcnow().timestamp() + 3600) * 1000
-    })
+    _save_json_to_plugin_cache(
+        OAUTH_CREDENTIALS_FILE,
+        {
+            "access_token": oauth_token,
+            "expiry_date": int(datetime.utcnow().timestamp() + 3600) * 1000,
+        },
+    )
 
     # Make API call using OAuth
     model = llm.get_model("gemini-2.5-flash-lite-ca")

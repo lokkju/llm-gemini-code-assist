@@ -1,23 +1,31 @@
 import base64
-import click
 import copy
-from datetime import datetime
-import httpx
-import ijson
 import json
-import jwt
-import llm
 import logging
 import os
+from collections.abc import AsyncIterator, Callable, Generator
+from datetime import datetime
 from pathlib import Path
-from pydantic import Field
-from typing import Optional
+from typing import Any, ClassVar
 
-from google.oauth2.credentials import Credentials
+import click
+import httpx
+import ijson
+import jwt
+import llm
 from google.auth.credentials import TokenState
+from google.auth.exceptions import OAuthError, RefreshError
 from google.auth.transport.requests import Request as GoogleAuthRequest
+from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
-from google.auth.exceptions import RefreshError, OAuthError
+from pydantic import Field
+
+
+# Type aliases
+BoolOrCallback = bool | Callable[[], bool]
+JsonDict = dict[str, Any]
+JsonSchema = JsonDict | list[Any] | str | int | bool | None
+
 
 logger = logging.getLogger(__name__)
 
@@ -47,9 +55,9 @@ OAUTH_CREDENTIALS_FILE = "oauth_creds.json"
 
 # https://cloud.google.com/vertex-ai/generative-ai/docs/multimodal/ground-gemini#supported_models_2
 GEMINI_CODE_ASSIST_MODELS = {
-    'gemini-2.5-pro',
-    'gemini-2.5-flash',
-    'gemini-2.5-flash-lite',
+    "gemini-2.5-pro",
+    "gemini-2.5-flash",
+    "gemini-2.5-flash-lite",
 }
 
 GOOGLE_SEARCH_MODELS = GEMINI_CODE_ASSIST_MODELS
@@ -58,8 +66,17 @@ THINKING_BUDGET_MODELS = GEMINI_CODE_ASSIST_MODELS
 # OAuth credentials from gemini-cli
 # these aren't secrets per se, as they're intended to be public in client apps
 # but we still obfuscate them a bit to avoid issues with secret scanning tools
-CLIENT_ID = base64.b64decode("NjgxMjU1ODA5Mzk1LW9vOGZ0Mm9wcmRybnA5ZTNhcWY2YXYzaG1kaWIxMzVqLmFwcHMuZ29vZ2xldXNlcmNvbnRlbnQuY29tCg==").decode("utf-8").strip()
-CLIENT_SECRET = base64.b64decode("R09DU1BYLTR1SGdNUG0tMW83U2stZ2VWNkN1NWNsWEZzeGwK").decode("utf-8").strip()
+CLIENT_ID = (
+    base64.b64decode(
+        "NjgxMjU1ODA5Mzk1LW9vOGZ0Mm9wcmRybnA5ZTNhcWY2YXYzaG1kaWIxMzVqLmFwcHMuZ29vZ2"
+        "xldXNlcmNvbnRlbnQuY29tCg=="
+    )
+    .decode("utf-8")
+    .strip()
+)
+CLIENT_SECRET = (
+    base64.b64decode("R09DU1BYLTR1SGdNUG0tMW83U2stZ2VWNkN1NWNsWEZzeGwK").decode("utf-8").strip()
+)
 SCOPES = [
     "openid",
     "https://www.googleapis.com/auth/cloud-platform",
@@ -67,17 +84,21 @@ SCOPES = [
     "https://www.googleapis.com/auth/userinfo.profile",
 ]
 
+
 class AuthenticationError(llm.ModelError):
     """Custom exception for all authentication-related failures."""
+
     pass
 
-def _resolve_bool(arg):
-  """
-  Helper function to resolve a boolean or callable.
-  If 'arg' is a function, it's called.
-  If 'arg' is a boolean, it's returned directly.
-  """
-  return arg() if callable(arg) else arg
+
+def _resolve_bool(arg: BoolOrCallback) -> bool:
+    """
+    Helper function to resolve a boolean or callable.
+    If 'arg' is a function, it's called.
+    If 'arg' is a boolean, it's returned directly.
+    """
+    return arg() if callable(arg) else arg
+
 
 def _validate_and_refresh_creds(credentials: Credentials | None) -> Credentials | None:
     """
@@ -90,7 +111,7 @@ def _validate_and_refresh_creds(credentials: Credentials | None) -> Credentials 
     try:
         if credentials.expired:
             logger.info("Cached credentials expired. Attempting to refresh...")
-            credentials.refresh(GoogleAuthRequest())
+            credentials.refresh(GoogleAuthRequest())  # type: ignore[no-untyped-call]
             logger.info("Credentials refreshed successfully.")
 
         if credentials.valid:
@@ -106,8 +127,11 @@ def _validate_and_refresh_creds(credentials: Credentials | None) -> Credentials 
         return None
     except Exception as e:
         # Log unexpected errors but still return None to allow fallback
-        logger.error(f"An unexpected error occurred during credential validation: {e}", exc_info=True)
+        logger.error(
+            f"An unexpected error occurred during credential validation: {e}", exc_info=True
+        )
         return None
+
 
 def _load_gemini_cli_credentials() -> Credentials | None:
     """Attempts to load credentials from the gemini-cli cache. Logs issues."""
@@ -118,12 +142,13 @@ def _load_gemini_cli_credentials() -> Credentials | None:
 
     logger.info(f"Found gemini-cli credentials at {gemini_cli_oauth_path}.")
     try:
-        with open(gemini_cli_oauth_path, "r") as f:
+        with open(gemini_cli_oauth_path) as f:
             creds_data = json.load(f)
         return credentials_from_oauth_creds_data(creds_data)
-    except (json.JSONDecodeError, IOError, AttributeError, OAuthError) as e:
+    except (OSError, json.JSONDecodeError, AttributeError, OAuthError) as e:
         logger.warning(f"Failed to load or parse gemini-cli credentials: {e}")
         return None
+
 
 def _run_oauth_flow() -> Credentials:
     """
@@ -143,9 +168,11 @@ def _run_oauth_flow() -> Credentials:
     logger.info("Starting OAuth 2.0 flow...")
 
     try:
-        credentials = flow.run_local_server(
+        credentials: Credentials = flow.run_local_server(
             port=0,
-            authorization_prompt_message="Please visit this URL to authorize this application: {url}",
+            authorization_prompt_message=(
+                "Please visit this URL to authorize this application: {url}"
+            ),
             success_message="Authentication successful. You can close this window.",
             open_browser=True,
         )
@@ -162,12 +189,14 @@ def _run_oauth_flow() -> Credentials:
         logger.error(f"Authentication flow failed: {e}", exc_info=True)
         raise AuthenticationError(f"Authentication flow failed: {e}") from e
 
+
 # --- Main Authenticate Function ---
 
+
 def authenticate(
-    reauthenticate: bool = False,
-    use_gemini_cli_creds: bool = False,
-    use_oauth: bool = True
+    reauthenticate: BoolOrCallback = False,
+    use_gemini_cli_creds: BoolOrCallback = False,
+    use_oauth: BoolOrCallback = True,
 ) -> Credentials:
     """
     Authenticate with Google OAuth, following a structured credential lookup.
@@ -190,7 +219,7 @@ def authenticate(
     try:
         cached_creds = get_oauth_credentials()
         credentials = _validate_and_refresh_creds(cached_creds)
-    except AuthenticationError as e:
+    except AuthenticationError:
         logger.info("Couldn't load existing credentials: {e}")
         pass
     if credentials:
@@ -198,7 +227,7 @@ def authenticate(
             logger.info("Re-authentication forced, skipping cache.")
         else:
             logger.info("Using valid cached OAuth credentials.")
-            _save_creds_to_plugin_cache(credentials) # Save refreshed token
+            _save_creds_to_plugin_cache(credentials)  # Save refreshed token
             return credentials
     else:
         logger.info("No valid cached credentials found.")
@@ -210,7 +239,7 @@ def authenticate(
         credentials = _validate_and_refresh_creds(gemini_creds)
         if credentials:
             logger.info("Loaded and validated credentials from gemini-cli.")
-            _save_creds_to_plugin_cache(credentials) # Save to our plugin cache
+            _save_creds_to_plugin_cache(credentials)  # Save to our plugin cache
             return credentials
 
     # --- Step 3: Run the full OAuth flow ---
@@ -226,9 +255,12 @@ def authenticate(
     # --- Final Step: Failure ---
     # This is reached if all enabled methods fail.
     logger.error("Authentication failed: No valid credentials could be found or obtained.")
-    raise AuthenticationError("Failed to authenticate. No valid credentials could be found or obtained.")
+    raise AuthenticationError(
+        "Failed to authenticate. No valid credentials could be found or obtained."
+    )
 
-def credentials_from_oauth_creds_data(creds_data):
+
+def credentials_from_oauth_creds_data(creds_data: JsonDict) -> Credentials:
     # TODO: use from_authorized_user_info ?
     try:
         # Create Credentials object
@@ -240,19 +272,19 @@ def credentials_from_oauth_creds_data(creds_data):
             token=access_token,
             id_token=creds_data.get("id_token"),
             refresh_token=CENSORED-REFRESH-TOKEN
-            token_uri="https://oauth2.googleapis.com/token",
+            token_uri="https://oauth2.googleapis.com/token",  # noqa S106
             client_id=CENSORED-CLIENT-ID
             client_secret=CENSORED-CLIENT-SECRET
             scopes=SCOPES,
             expiry=expiry,
-        )
+        )  # type: ignore[no-untyped-call]
         return credentials
 
     except Exception as e:
-        raise AuthenticationError(f"Error converting creds_data to Credentials: {e}")
-        return None
+        raise AuthenticationError(f"Error converting creds_data to Credentials: {e}") from e
 
-def get_oauth_credentials():
+
+def get_oauth_credentials() -> Credentials:
     """Load OAuth credentials from <plugin_cache_dir>/oauth_creds.json and refresh if needed.
 
     Returns:
@@ -268,7 +300,7 @@ def get_oauth_credentials():
     # If token is expired, try to refresh it
     if credentials and credentials.token_state != TokenState.FRESH and credentials.refresh_token:
         try:
-            credentials.refresh(GoogleAuthRequest())
+            credentials.refresh(GoogleAuthRequest())  # type: ignore[no-untyped-call]
             # Save the refreshed credentials
             refreshed_creds_data = {
                 "access_token": credentials.token,
@@ -276,14 +308,16 @@ def get_oauth_credentials():
                 "scope": credentials.scopes if credentials.scopes else " ".join(SCOPES),
                 "token_type": "Bearer",
                 "id_token": credentials.id_token,
-                "expiry_date": int(credentials.expiry.timestamp() * 1000) if credentials.expiry else None,
+                "expiry_date": (
+                    int(credentials.expiry.timestamp() * 1000) if credentials.expiry else None
+                ),
             }
             _save_json_to_plugin_cache(OAUTH_CREDENTIALS_FILE, refreshed_creds_data)
         except Exception as e:
             raise AuthenticationError(
                 f"Failed to refresh OAuth token: {e}. "
                 "Please reauthenticate using: `llm gemini-ca auth`"
-            )
+            ) from e
 
     # If token is still not valid after attempting refresh, the refresh
     # call above will raise an exception. If the token is expired and
@@ -299,11 +333,10 @@ def get_oauth_credentials():
         # more specific error. This helps in test environments where the
         # mock credentials might not be perfectly valid.
 
-
     return credentials
 
 
-def get_oauth_token():
+def get_oauth_token() -> str | None:
     """Get OAuth access token from ~/.gemini/oauth_creds.json.
 
     Returns:
@@ -317,7 +350,8 @@ def get_oauth_token():
         return credentials.token
     return None
 
-def get_oauth_id_token():
+
+def get_oauth_id_token() -> str | None:
     """Get OAuth id_token token from ~/.gemini/oauth_creds.json.
 
     Returns:
@@ -328,87 +362,101 @@ def get_oauth_id_token():
     """
     credentials = get_oauth_credentials()
     if credentials:
-        return credentials.id_token
+        id_token: str = credentials.id_token
+        return id_token
     return None
 
-def _plugin_cache_dir():
-    user_dir = llm.user_dir()
+
+def _plugin_cache_dir() -> Path:
+    user_dir: Path = llm.user_dir()  # type: ignore[no-untyped-call]
     plugin_cache_dir = user_dir / GEMINI_CODE_ASSIST_PLUGIN_SLUG
     plugin_cache_dir.mkdir(exist_ok=True)
     return plugin_cache_dir
 
-def _clear_plugin_cache():
+
+def _clear_plugin_cache() -> None:
     plugin_cache_dir = _plugin_cache_dir()
     for filename in os.listdir(plugin_cache_dir):
-       file_path = os.path.join(plugin_cache_dir, filename)
-       if os.path.isfile(file_path) or os.path.islink(file_path):
-          os.unlink(file_path)
+        file_path = os.path.join(plugin_cache_dir, filename)
+        if os.path.isfile(file_path) or os.path.islink(file_path):
+            os.unlink(file_path)
 
-def _load_json_from_plugin_cache(filename):
+
+def _load_json_from_plugin_cache(filename: str) -> JsonDict:
     plugin_cache_dir = _plugin_cache_dir()
     data_path = plugin_cache_dir / filename
     try:
-        with open(data_path, "r") as f:
-            return json.load(f)
-    except (json.JSONDecodeError, IOError):
+        with open(data_path) as f:
+            data = json.load(f)
+
+        if not isinstance(data, dict):
+            return {}
+
+        return data
+    except (OSError, json.JSONDecodeError):
         return {}
 
-def _save_json_to_plugin_cache(filename, cache):
+
+def _save_json_to_plugin_cache(filename: str, cache: JsonDict) -> None:
     try:
         plugin_cache_dir = _plugin_cache_dir()
         data_path = plugin_cache_dir / filename
         data_path.parent.mkdir(parents=True, exist_ok=True)
         with open(data_path, "w") as f:
             json.dump(cache, f, indent=2)
-    except IOError:
+    except OSError:
         pass
 
-def _clean_plugin_cache():
+
+def _clean_plugin_cache() -> None:
     # delete all files in cache dir
     try:
         plugin_cache_dir = _plugin_cache_dir()
         for item in plugin_cache_dir.iterdir():
             if item.is_file():
                 item.unlink()
-    except IOError:
-        raise llm.ModelError(
-            f"Failed to clean project ID cache: {e}"
-        )
+    except OSError as e:
+        raise llm.ModelError(f"Failed to clean project ID cache: {e}") from e
 
-def _load_project_id_cache():
+
+def _load_project_id_cache() -> JsonDict:
     return _load_json_from_plugin_cache(PROJECT_ID_CACHE_FILE)
 
-def _save_project_id_cache(cache):
+
+def _save_project_id_cache(cache: JsonDict) -> None:
     _save_json_to_plugin_cache(PROJECT_ID_CACHE_FILE, cache)
 
-def _save_creds_to_plugin_cache(credentials):
+
+def _save_creds_to_plugin_cache(credentials: Credentials) -> None:
     # Save credentials
     oauth_file = _plugin_cache_dir() / OAUTH_CREDENTIALS_FILE
 
-    creds_data = {
+    creds_data: JsonDict = {
         "access_token": credentials.token,
         "refresh_token": credentials.refresh_token,
         "id_token": credentials.id_token,
         "token_uri": credentials.token_uri,
         "scope": " ".join(credentials.scopes),
-        "expiry_date": int(credentials.expiry.timestamp() * 1000),
+        "expiry_date": int(credentials.expiry.timestamp() * 1000) if credentials.expiry else None,
     }
     with open(oauth_file, "w") as f:
         json.dump(creds_data, f, indent=2)
 
     oauth_file.chmod(0o600)
 
-def get_user_email(credentials):
+
+def get_user_email(credentials: Credentials) -> str | None:
     if not credentials or not credentials.id_token:
         return None
     try:
         decoded_token = jwt.decode(credentials.id_token, options={"verify_signature": False})
-        return decoded_token.get("email")
+        email: str = decoded_token.get("email")
+        return email
     except jwt.PyJWTError:
         return None
 
 
-def get_code_assist_project(credentials):
+def get_code_assist_project(credentials: Credentials) -> tuple[str | None, str | None]:
     """Get project assignment from Code Assist API (cached per user).
 
     Args:
@@ -447,7 +495,7 @@ def get_code_assist_project(credentials):
             "ideType": "IDE_UNSPECIFIED",
             "platform": "PLATFORM_UNSPECIFIED",
             "pluginType": "GEMINI",
-        }
+        },
     }
 
     try:
@@ -467,9 +515,6 @@ def get_code_assist_project(credentials):
         return project_id, user_tier
     except Exception as e:
         raise e
-
-
-
 
 
 ATTACHMENT_TYPES = {
@@ -508,11 +553,9 @@ ATTACHMENT_TYPES = {
 
 
 @llm.hookimpl
-def register_models(register):
+def register_models(register: Any) -> None:
     # Register both sync and async versions of each model with gemini-ca/ prefix
-    for gemini_model_id in (
-        GEMINI_CODE_ASSIST_MODELS
-    ):
+    for gemini_model_id in GEMINI_CODE_ASSIST_MODELS:
         # Add gemini-ca/ prefix for user-facing model ID
         model_id = f"gemini-ca/{gemini_model_id}"
         model_alias = f"{gemini_model_id}-ca"
@@ -539,8 +582,8 @@ def register_models(register):
         )
 
 
-def resolve_type(attachment):
-    mime_type = attachment.resolve_type()
+def resolve_type(attachment: Any) -> str:
+    mime_type: str = attachment.resolve_type()
     # https://github.com/simonw/llm/issues/587#issuecomment-2439785140
     if mime_type == "audio/mpeg":
         mime_type = "audio/mp3"
@@ -549,7 +592,7 @@ def resolve_type(attachment):
     return mime_type
 
 
-def cleanup_schema(schema, in_properties=False):
+def cleanup_schema(schema: JsonSchema, in_properties: bool = False) -> JsonSchema:
     "Gemini supports only a subset of JSON schema"
     keys_to_remove = ("$schema", "additionalProperties", "title")
 
@@ -575,14 +618,14 @@ class _SharedGemini:
     supports_schema = True
     supports_tools = True
 
-    attachment_types = set()
+    attachment_types: ClassVar[set[str]] = set()
 
     class Options(llm.Options):
-        code_execution: Optional[bool] = Field(
+        code_execution: bool | None = Field(
             description="Enables the model to generate and run Python code",
             default=None,
         )
-        temperature: Optional[float] = Field(
+        temperature: float | None = Field(
             description=(
                 "Controls the randomness of the output. Use higher values for "
                 "more creative responses, and lower values for more "
@@ -592,11 +635,11 @@ class _SharedGemini:
             ge=0.0,
             le=2.0,
         )
-        max_output_tokens: Optional[int] = Field(
+        max_output_tokens: int | None = Field(
             description="Sets the maximum number of tokens to include in a candidate.",
             default=None,
         )
-        top_p: Optional[float] = Field(
+        top_p: float | None = Field(
             description=(
                 "Changes how the model selects tokens for output. Tokens are "
                 "selected from the most to least probable until the sum of "
@@ -606,7 +649,7 @@ class _SharedGemini:
             ge=0.0,
             le=1.0,
         )
-        top_k: Optional[int] = Field(
+        top_k: int | None = Field(
             description=(
                 "Changes how the model selects tokens for output. A topK of 1 "
                 "means the selected token is the most probable among all the "
@@ -617,11 +660,11 @@ class _SharedGemini:
             default=None,
             ge=1,
         )
-        json_object: Optional[bool] = Field(
+        json_object: bool | None = Field(
             description="Output a valid JSON object {...}",
             default=None,
         )
-        timeout: Optional[float] = Field(
+        timeout: float | None = Field(
             description=(
                 "The maximum time in seconds to wait for a response. "
                 "If the model does not respond within this time, "
@@ -629,7 +672,7 @@ class _SharedGemini:
             ),
             default=None,
         )
-        url_context: Optional[bool] = Field(
+        url_context: bool | None = Field(
             description=(
                 "Enable the URL context tool so the model can fetch content "
                 "from URLs mentioned in the prompt"
@@ -638,48 +681,51 @@ class _SharedGemini:
         )
 
     class OptionsWithGoogleSearch(Options):
-        google_search: Optional[bool] = Field(
-            description="Enables the model to use Google Search to improve the accuracy and recency of responses from the model",
+        google_search: bool | None = Field(
+            description=(
+                "Enables the model to use Google Search to improve the accuracy and "
+                "recency of responses from the model"
+            ),
             default=None,
         )
 
     class OptionsWithThinkingBudget(OptionsWithGoogleSearch):
-        thinking_budget: Optional[int] = Field(
+        thinking_budget: int | None = Field(
             description="Indicates the thinking budget in tokens. Set to 0 to disable.",
             default=None,
         )
 
     def __init__(
         self,
-        gemini_model_id,
-        can_vision=True,
-        can_google_search=False,
-        can_thinking_budget=False,
-        can_schema=False,
-    ):
-        # For Code Assist, model_id has gemini-ca/ prefix, but we need the raw gemini model ID for API calls
+        gemini_model_id: str,
+        can_vision: bool = True,
+        can_google_search: bool = False,
+        can_thinking_budget: bool = False,
+        can_schema: bool = False,
+    ) -> None:
+        # For Code Assist, model_id has gemini-ca/ prefix,
+        # but we need the raw gemini model ID for API calls
         if gemini_model_id.startswith("gemini-ca/"):
             self.model_id = gemini_model_id
             self.gemini_model_id = gemini_model_id.replace("gemini-ca/", "")
         else:
             # Fallback for direct initialization
-            self.model_id = "gemini-ca/{}".format(gemini_model_id)
+            self.model_id = f"gemini-ca/{gemini_model_id}"
             self.gemini_model_id = gemini_model_id
 
         self.can_google_search = can_google_search
         self.supports_schema = can_schema
         if can_google_search:
-            self.Options = self.OptionsWithGoogleSearch
+            self.Options = self.OptionsWithGoogleSearch  # type: ignore[misc]
         self.can_thinking_budget = can_thinking_budget
         if can_thinking_budget:
-            self.Options = self.OptionsWithThinkingBudget
+            self.Options = self.OptionsWithThinkingBudget  # type: ignore[misc]
         if can_vision:
-            self.attachment_types = ATTACHMENT_TYPES
+            self.attachment_types = ATTACHMENT_TYPES  # type: ignore[misc]
 
-
-    def get_credentials(self):
+    def get_credentials(self) -> Credentials:
         """Get OAuth credentials, caching them per instance."""
-        if not hasattr(self, '_credentials'):
+        if not hasattr(self, "_credentials"):
             self._credentials = get_oauth_credentials()
             if not self._credentials:
                 raise llm.ModelError(
@@ -687,22 +733,18 @@ class _SharedGemini:
                 )
         return self._credentials
 
-    def get_project_id(self):
+    def get_project_id(self) -> str:
         """Get Code Assist project ID, caching it per instance."""
-        if not hasattr(self, '_project_id'):
+        if not hasattr(self, "_project_id"):
             credentials = self.get_credentials()
             project_id, user_tier = get_code_assist_project(credentials)
             if not project_id:
-                raise llm.ModelError(
-                    "Failed to get project assignment from Code Assist API"
-                )
+                raise llm.ModelError("Failed to get project assignment from Code Assist API")
             self._project_id = project_id
             self._user_tier = user_tier
         return self._project_id
 
-
-
-    def get_auth_headers(self):
+    def get_auth_headers(self) -> JsonDict:
         """Get OAuth authentication headers for Code Assist API calls."""
         credentials = self.get_credentials()
         if credentials is None:
@@ -711,11 +753,11 @@ class _SharedGemini:
             )
         return {"Authorization": f"Bearer {credentials.token}"}
 
-    def get_api_url(self):
+    def get_api_url(self) -> str:
         """Get Code Assist API URL."""
         return "https://cloudcode-pa.googleapis.com/v1internal:streamGenerateContent"
 
-    def build_messages(self, prompt, conversation):
+    def build_messages(self, prompt: Any, conversation: Any) -> list[JsonDict]:
         messages = []
         if conversation:
             for response in conversation.responses:
@@ -796,15 +838,15 @@ class _SharedGemini:
         messages.append({"role": "user", "parts": parts})
         return messages
 
-    def build_request_body(self, prompt, conversation):
-        body = {
+    def build_request_body(self, prompt: Any, conversation: Any) -> JsonDict:
+        body: JsonDict = {
             "contents": self.build_messages(prompt, conversation),
             "safetySettings": SAFETY_SETTINGS,
         }
         if prompt.system:
             body["systemInstruction"] = {"parts": [{"text": prompt.system}]}
 
-        tools = []
+        tools: list[JsonDict] = []
         if prompt.options and prompt.options.code_execution:
             tools.append({"codeExecution": {}})
         if prompt.options and self.can_google_search and prompt.options.google_search:
@@ -852,9 +894,7 @@ class _SharedGemini:
         if prompt.options and prompt.options.json_object:
             generation_config["response_mime_type"] = "application/json"
 
-        if any(
-            getattr(prompt.options, key, None) is not None for key in config_map.keys()
-        ):
+        if any(getattr(prompt.options, key, None) is not None for key in config_map.keys()):
             for key, other_key in config_map.items():
                 config_value = getattr(prompt.options, key, None)
                 if config_value is not None:
@@ -865,7 +905,7 @@ class _SharedGemini:
 
         return body
 
-    def wrap_code_assist_request(self, body, prompt):
+    def wrap_code_assist_request(self, body: JsonDict, prompt: Any) -> JsonDict:
         """Wrap standard Gemini request in Code Assist API format."""
         import uuid
 
@@ -873,17 +913,18 @@ class _SharedGemini:
             "model": self.gemini_model_id,
             "project": self.get_project_id(),
             "user_prompt_id": str(uuid.uuid4()),
-            "request": body
+            "request": body,
         }
 
-    def unwrap_code_assist_response(self, event):
+    def unwrap_code_assist_response(self, event: JsonDict) -> JsonDict:
         """Unwrap Code Assist API response to standard Gemini format."""
         # Code Assist wraps the response in {"response": {...}}
         if isinstance(event, dict) and "response" in event:
-            return event["response"]
+            response: JsonDict = event["response"]
+            return response
         return event
 
-    def process_part(self, part, response):
+    def process_part(self, part: JsonDict, response: Any) -> str:
         if "functionCall" in part:
             response.add_tool_call(
                 llm.ToolCall(
@@ -892,19 +933,24 @@ class _SharedGemini:
                 )
             )
         if "text" in part:
-            return part["text"]
+            text: str = part["text"]
+            return text
         elif "executableCode" in part:
-            return f'```{part["executableCode"]["language"].lower()}\n{part["executableCode"]["code"].strip()}\n```\n'
+            lang = part["executableCode"]["language"].lower()
+            code = part["executableCode"]["code"].strip()
+            return f"```{lang}\n{code}\n```\n"
         elif "codeExecutionResult" in part:
-            return f'```\n{part["codeExecutionResult"]["output"].strip()}\n```\n'
+            return f"```\n{part['codeExecutionResult']['output'].strip()}\n```\n"
         return ""
 
-    def process_candidates(self, candidates, response):
+    def process_candidates(
+        self, candidates: list[JsonDict], response: Any
+    ) -> Generator[str, None, None]:
         # We only use the first candidate
         for part in candidates[0]["content"]["parts"]:
             yield self.process_part(part, response)
 
-    def set_usage(self, response):
+    def set_usage(self, response: Any) -> None:
         try:
             # Don't record the "content" key from that last candidate
             for candidate in response.response_json["candidates"]:
@@ -923,15 +969,15 @@ class _SharedGemini:
                     input_tokens += tool_token_count
             usage.pop("totalTokenCount", None)
             if input_tokens is not None:
-                response.set_usage(
-                    input=input_tokens, output=output_tokens, details=usage or None
-                )
+                response.set_usage(input=input_tokens, output=output_tokens, details=usage or None)
         except (IndexError, KeyError):
             pass
 
 
-class GeminiPro(_SharedGemini, llm.Model):
-    def execute(self, prompt, stream, response, conversation):
+class GeminiPro(_SharedGemini, llm.Model):  # type: ignore[misc]
+    def execute(
+        self, prompt: Any, stream: Any, response: Any, conversation: Any
+    ) -> Generator[str, None, None]:
         url = self.get_api_url()
         gathered = []
 
@@ -977,8 +1023,11 @@ class GeminiPro(_SharedGemini, llm.Model):
         except Exception as e:
             raise llm.ModelError(f"Error during request: {e}") from e
 
-class AsyncGeminiPro(_SharedGemini, llm.AsyncModel):
-    async def execute(self, prompt, stream, response, conversation):
+
+class AsyncGeminiPro(_SharedGemini, llm.AsyncModel):  # type: ignore[name-defined,misc]
+    async def execute(
+        self, prompt: Any, stream: Any, response: Any, conversation: Any
+    ) -> AsyncIterator[str]:
         url = self.get_api_url()
         gathered = []
 
@@ -996,8 +1045,8 @@ class AsyncGeminiPro(_SharedGemini, llm.AsyncModel):
             ) as http_response:
                 events = ijson.sendable_list()
                 coro = ijson.items_coro(events, "item")
-                async for chunk in http_response.aiter_bytes():
-                    coro.send(chunk)
+                async for byte_chunk in http_response.aiter_bytes():
+                    coro.send(byte_chunk)
                     if events:
                         for event in events:
                             if isinstance(event, dict) and "error" in event:
@@ -1019,32 +1068,45 @@ class AsyncGeminiPro(_SharedGemini, llm.AsyncModel):
         response.response_json = gathered[-1]
         self.set_usage(response)
 
+
 @llm.hookimpl
-def register_commands(cli):
-    @cli.group()
-    def gemini_ca():
+def register_commands(cli: Any) -> None:
+    @cli.group()  # type: ignore[misc]
+    def gemini_ca() -> None:
         "Commands relating to the llm-gemini-code-assist plugin"
 
-    @gemini_ca.command()
-    def auth():
-        reauthenticate = lambda: click.confirm("Already authenticated with valid OAuth credentials. Are you sure you want to re-authenticate?", default=False)
-        use_gemini_cli_creds = lambda: click.confirm("Found existing gemini-cli OAuth credentials. Do you want to use attempt to use these to authenticate?", default=True)
+    @gemini_ca.command()  # type: ignore[misc]
+    def auth() -> None:
+        def reauthenticate() -> bool:
+            return click.confirm(
+                "Already authenticated with valid OAuth credentials. "
+                "Are you sure you want to re-authenticate?",
+                default=False,
+            )
+
+        def use_gemini_cli_creds() -> bool:
+            return click.confirm(
+                "Found existing gemini-cli OAuth credentials. "
+                "Do you want to use attempt to use these to authenticate?",
+                default=True,
+            )
+
         use_oauth: bool = True
         authenticate(reauthenticate, use_gemini_cli_creds, use_oauth)
         click.echo("\n✓ Authentication successful!")
 
-    @gemini_ca.command()
-    def clear_cache():
+    @gemini_ca.command()  # type: ignore[misc]
+    def clear_cache() -> None:
         """
         Clear cached credentials
         """
         _clear_plugin_cache()
         click.echo("Plugin cache cleared")
 
-    @gemini_ca.command()
-    def models():
+    @gemini_ca.command()  # type: ignore[misc]
+    def models() -> None:
         """
         List of Gemini models available via Code Assist
         """
 
-        click.echo(json.dumps(sorted(list(GEMINI_CODE_ASSIST_MODELS)), indent=2))
+        click.echo(json.dumps(sorted(GEMINI_CODE_ASSIST_MODELS), indent=2))
