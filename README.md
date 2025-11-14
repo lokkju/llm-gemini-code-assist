@@ -136,7 +136,6 @@ uv run pytest
 - Requires Code Assist API access
 - Models use `gemini-ca/` prefix
 - Tokens auto-refresh using stored refresh tokens
-- Requires `client_id` and `client_secret` in credentials
 
 ## License
 
