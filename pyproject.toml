@@ -1,6 +1,6 @@
 [project]
 name = "llm-gemini-code-assist"
-version = "0.26.0"
+version = "0.26.1"
 description = "LLM plugin to access Google's Gemini via Code Assist API with OAuth"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -35,6 +35,10 @@ dev = [
     "types-requests>=2.32.0",
     "ruff>=0.9.5",
 ]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
 [project.urls]
 Homepage = "https://github.com/lokkju/llm-gemini-code-assist"
