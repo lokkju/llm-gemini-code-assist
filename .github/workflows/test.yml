@@ -6,8 +6,8 @@ permissions:
   contents: read
 
 jobs:
-  lint:
-    name: Code quality checks
+  pre-commit:
+    name: Pre-commit checks (linting, formatting, type checking, secrets)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -17,12 +17,8 @@ jobs:
           python-version: "3.10"
       - name: Install dependencies
         run: uv sync --locked --all-extras --dev
-      - name: Run ruff linting
-        run: uv run ruff check .
-      - name: Run ruff formatting check
-        run: uv run ruff format --check .
-      - name: Run mypy type checking
-        run: uv run mypy --strict llm_gemini_code_assist.py tests/
+      - name: Run pre-commit hooks
+        run: uv run pre-commit run --all-files
 
   test:
     name: test on Python ${{ matrix.python-version }}
