@@ -107,7 +107,7 @@ def mock_llm_user_path(tmp_path, monkeypatch):
 
 
 @pytest.fixture
-def mock_oauth_credentials(monkeypatch, request):
+def mock_oauth_credentials(monkeypatch, request, record_mode):
     """
     Provides mock OAuth credentials for tests that need them.
     During VCR playback, this mocks the credential loading to prevent any HTTP requests.
@@ -138,9 +138,6 @@ def mock_oauth_credentials(monkeypatch, request):
 
     # Check if the test uses VCR
     uses_vcr = request.node.get_closest_marker("vcr") is not None
-
-    # Get the record mode from pytest config
-    record_mode = request.config.getoption("--record-mode", default=None)
 
     # Determine if we're in playback mode
     is_playback = False
