@@ -103,31 +103,25 @@ If you get authentication errors:
 
 ## Development
 
-To set up this plugin locally:
+To set up the development environment:
 
 ```bash
 cd llm-gemini-code-assist
-python3 -m venv venv
-source venv/bin/activate
-pip install -e '.[test]'
+uv run setup
 ```
 
-or with uv:
-
-```bash
-uv run llm install -e '.[test]'
-```
+This will install dependencies, set up pre-commit hooks (including secret scanning), and prepare the environment.
 
 Run tests:
 
 ```bash
-pytest
+uv run pytest
 ```
 
-or with uv:
+The pre-commit hooks will automatically run linting, formatting, type checking, and secret scanning before each commit. You can also run them manually:
 
 ```bash
-uv run pytest
+uv run pre-commit run --all-files
 ```
 
 ## Differences from llm-gemini
