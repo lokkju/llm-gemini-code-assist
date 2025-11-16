@@ -317,14 +317,14 @@ def test_oauth_token_refresh_missing_refresh_token(tmpdir, monkeypatch):
 def test_oauth_token_refresh_failed_request():
     """Test OAuth refresh fails when HTTP request fails"""
 
-    # Create expired token
+    # Create expired token with a dummy refresh token that will be censored
     expiry_date = int(datetime.utcnow().timestamp() - 100) * 1000
     _save_json_to_plugin_cache(
         OAUTH_CREDENTIALS_FILE,
         {
             "access_token": "expired_token",
             "expiry_date": expiry_date,
-            "refresh_token": "CENSORED-REFRESH-TOKEN",
+            "refresh_token": "invalid_refresh",  # This will be censored to CENSORED-REFRESH-TOKEN
             "client_id": "client_id_123",
             "client_secret": "client_secret_123",
             "scope": " ".join(SCOPES),

@@ -12,6 +12,7 @@ import pytest
 def before_record_request(request):
     """Censor sensitive data from request bodies before recording/matching"""
     if request.body:
+        # Try JSON bodies first
         try:
             body = json.loads(request.body)
             # Censor sensitive fields - these will be censored in both
@@ -22,7 +23,32 @@ def before_record_request(request):
                 body["project"] = "CENSORED-PROJECT-ID"
             request.body = json.dumps(body).encode("utf-8")
         except (json.JSONDecodeError, AttributeError):
-            pass
+            # Handle form-encoded bodies (OAuth token requests)
+            from urllib.parse import parse_qs, urlencode
+
+            try:
+                if isinstance(request.body, bytes):
+                    body_str = request.body.decode("utf-8")
+                else:
+                    body_str = request.body
+
+                # Parse form data
+                params = parse_qs(body_str, keep_blank_values=True)
+
+                # Censor OAuth-related fields
+                if "client_id" in params:
+                    params["client_id"] = ["CENSORED-CLIENT-ID"]
+                if "client_secret" in params:
+                    params["client_secret"] = ["CENSORED-CLIENT-SECRET"]
+                if "refresh_token" in params:
+                    params["refresh_token"] = ["CENSORED-REFRESH-TOKEN"]
+                if "access_token" in params:
+                    params["access_token"] = ["CENSORED-ACCESS-TOKEN"]
+
+                # Rebuild the body
+                request.body = urlencode(params, doseq=True)
+            except (ValueError, AttributeError):
+                pass
     return request
 
 
