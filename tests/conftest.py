@@ -177,11 +177,11 @@ def mock_oauth_credentials(monkeypatch, request, record_mode):
             # Use a future expiry time (1 hour from now)
             creds = Credentials(
                 token="mock_access_token_12345",
-                refresh_token=CENSORED-REFRESH-TOKEN
+                refresh_token="mock_refresh_token_67890",
                 id_token="mock_id_token",
                 token_uri="https://oauth2.googleapis.com/token",
-                client_id=CENSORED-CLIENT-ID
-                client_secret=CENSORED-CLIENT-SECRET
+                client_id=llm_gemini_code_assist.CLIENT_ID,
+                client_secret=llm_gemini_code_assist.CLIENT_SECRET,
                 scopes=llm_gemini_code_assist.SCOPES,
                 expiry=datetime.utcnow() + timedelta(hours=1),
             )

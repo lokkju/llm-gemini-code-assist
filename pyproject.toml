@@ -98,14 +98,6 @@ indent-style = "space"
 skip-magic-trailing-comma = false
 line-ending = "auto"
 
-[tool.uv]
-# Custom scripts for common development tasks
-[tool.uv.scripts]
-setup = { cmd = [
-    "sh", "-c",
-    "echo '→ Installing dependencies...' && uv sync && echo '→ Installing pre-commit hooks...' && uv run pre-commit install && echo '✓ Development environment ready! Run \"uv run pytest\" to verify.'"
-] }
-
 [tool.mypy]
 # Basic type checking configuration
 python_version = "3.10"

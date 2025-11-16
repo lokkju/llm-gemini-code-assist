@@ -107,10 +107,11 @@ To set up the development environment:
 
 ```bash
 cd llm-gemini-code-assist
-uv run setup
+uv sync
+uv run pre-commit install
 ```
 
-This will install dependencies, set up pre-commit hooks (including secret scanning), and prepare the environment.
+This installs dependencies and sets up pre-commit hooks (including secret scanning).
 
 Run tests:
 

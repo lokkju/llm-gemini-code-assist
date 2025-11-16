@@ -271,10 +271,10 @@ def credentials_from_oauth_creds_data(creds_data: JsonDict) -> Credentials:
         credentials = Credentials(
             token=access_token,
             id_token=creds_data.get("id_token"),
-            refresh_token=CENSORED-REFRESH-TOKEN
+            refresh_token=creds_data.get("refresh_token"),
             token_uri="https://oauth2.googleapis.com/token",  # noqa S106
-            client_id=CENSORED-CLIENT-ID
-            client_secret=CENSORED-CLIENT-SECRET
+            client_id=CLIENT_ID,
+            client_secret=CLIENT_SECRET,
             scopes=SCOPES,
             expiry=expiry,
         )  # type: ignore[no-untyped-call]
