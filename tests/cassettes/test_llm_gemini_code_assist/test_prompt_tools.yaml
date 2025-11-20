@@ -1,0 +1,157 @@
+interactions:
+- request:
+    body: '{"model": "gemini-2.5-flash", "project": "CENSORED-PROJECT-ID", "user_prompt_id":
+      "CENSORED-USER-PROMPT-ID", "request": {"contents": [{"role": "user", "parts":
+      [{"text": "Two names for a pet pelican"}]}], "safetySettings": [{"category":
+      "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"}, {"category":
+      "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"}, {"category":
+      "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"}, {"category": "HARM_CATEGORY_HARASSMENT",
+      "threshold": "BLOCK_NONE"}], "tools": [{"functionDeclarations": [{"name": "pelican_name_generator",
+      "description": null, "parameters": {"properties": {}, "type": "object"}}]}]}}'
+    headers:
+      accept:
+      - '*/*'
+      accept-encoding:
+      - gzip, deflate
+      authorization:
+      - CENSORED-OAUTH-TOKEN
+      connection:
+      - keep-alive
+      content-length:
+      - '641'
+      content-type:
+      - application/json
+      host:
+      - cloudcode-pa.googleapis.com
+      user-agent:
+      - python-httpx/0.28.1
+    method: POST
+    uri: https://cloudcode-pa.googleapis.com/v1internal:streamGenerateContent
+  response:
+    body:
+      string: !!binary |
+        H4sIAAAAAAAC/7RVWXOiTBR9z69I8ZoxNmCzpGoeUDpIXEBBxUxNUS02iLLZQNRM5b8PbvmMX808
+        zGTKl77b4fS519vfftzc3jKU5Fma5IR5uN3blcfDyTyc44Lkle/bwXd7ih3jaVKQpHgvOLlpGu1B
+        mDidk4j5chnKMC0uwa4hT2nFIi2DRWGFQYKLkh7QWuGm2ai3604o5MNFZ+Ml/fGoZwrJqohtONsN
+        wwI0PMl6QXk8s7WncKxK6cywpEiC3iBbK8Tc1llx6eVGRrBMU7W9jLfY47pTzK1WTgdIZNqTBst8
+        C+IoCKf55hlxIxFtZ5rQ4Un6Ms6bjiQGRVOYRRulafB15zGSjFFhqaopZm2gzdNILtfGXScw7fEA
+        q3TY7UeBET3yvFyHT0/8y10PI71Uggwe+cA6jRotNdDb6RxsrOV4KU+ERrJrJYs4evXmYSqVj7pq
+        xh2T7hpqBnur12ByF6zr3GLQ7G/raFCOVRqxi07ylGJSp1gzVxAAwQJOsVzaOovFMtc3oPTQQNw6
+        fkynGtVf0ePUemZxuZXN3SaehZNOiR1nvuOt10nKyRqZbL5+/dC8Q2f8MvGKME1aOIqu+n7KSHB8
+        6FdGorAaIHdvuwFJCMVFSv+HWFVgGuxn4sfbVeijfWl9fz+//YfH5NgnxW6IizAJrofsI9FqsgsS
+        pHS3J9pWhj23pdhIM4ZTt10dXMtEqNW+4spkNJ3hWRiFxaGuj7SurunNLvpNouWlh/Fl7wHPyYAX
+        SA3Aq/ScvBB6Aj2QsdAYDXV76v76E+eaMz64ByyEQkPgALzIfPvyJxqoSl9DQ2NkuS2jb6O+/ZlK
+        wEoJEciVDsK/0oGrfqzw1zJUlmJZvU++f8UQABbIQOL5f6MACyVOlsHfC2AhZ6R0u1MXOWZXb+mf
+        qgN7zwochLL8p/+Iy+u9n8+b4ej5fsRlyhwHpEcKXD1m+GJtMQXFvh969i477Cyj76qop/TVI/hJ
+        teNDNiY0rxbfPi0gcZiENe4e1vwI54vTbRmPkkpLOzwuQA5wsMayNbZhc+ABSg9QvAeQYxvS87ng
+        /OTq830Beg4cPLMcxV37kZiaCx+vd4PensuByZ6td8r1ISvuN4oPIQtYHjM3bzc/AQAA///S4eUa
+        bBX5YK4u0oBxWJwRlJpYDInV4BD/AKUhU50Yg4o4AzMaFqOWFoZGRhaUlyI0rU2A9aqBuZGloQm5
+        ATFIawlTPXNLU1MTC3OatReA5YepmZml8eCuJYz0zIAp0QhUSZgPVCUBdFZuQUlIfnZqnnN+KbiY
+        NDSGOQapbEVVYQRXUZJfkpiDImlmgZDEVQPpYLG+2AXovMwc1NIIpcgGFtWJsIAOcY1AjQugS1D8
+        gCgWoaxYXL6irsVGeCyGdv1QA9PEeCjWxwAAAAD//4oFAAAA//8DAM9yngRYDwAA
+    headers:
+      Alt-Svc:
+      - h3=":443"; ma=2592000,h3-29=":443"; ma=2592000
+      Content-Encoding:
+      - gzip
+      Content-Type:
+      - application/json; charset=UTF-8
+      Date:
+      - Fri, 14 Nov 2025 20:58:57 GMT
+      Server:
+      - ESF
+      Server-Timing:
+      - gfet4t7; dur=1141
+      Transfer-Encoding:
+      - chunked
+      Vary:
+      - Origin
+      - X-Origin
+      - Referer
+      X-Content-Type-Options:
+      - nosniff
+      X-Frame-Options:
+      - SAMEORIGIN
+      X-XSS-Protection:
+      - '0'
+    status:
+      code: 200
+      message: OK
+- request:
+    body: '{"model": "gemini-2.5-flash", "project": "CENSORED-PROJECT-ID", "user_prompt_id":
+      "CENSORED-USER-PROMPT-ID", "request": {"contents": [{"role": "user", "parts":
+      [{"text": "Two names for a pet pelican"}]}, {"role": "model", "parts": [{"text":
+      ""}, {"function_call": {"name": "pelican_name_generator", "args": {}}}, {"function_call":
+      {"name": "pelican_name_generator", "args": {}}}]}, {"role": "user", "parts":
+      [{"function_response": {"name": "pelican_name_generator", "response": {"output":
+      "Charles"}}}, {"function_response": {"name": "pelican_name_generator", "response":
+      {"output": "Sammy"}}}]}], "safetySettings": [{"category": "HARM_CATEGORY_DANGEROUS_CONTENT",
+      "threshold": "BLOCK_NONE"}, {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+      "threshold": "BLOCK_NONE"}, {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold":
+      "BLOCK_NONE"}, {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"}],
+      "tools": [{"functionDeclarations": [{"name": "pelican_name_generator", "description":
+      null, "parameters": {"properties": {}, "type": "object"}}]}]}}'
+    headers:
+      accept:
+      - '*/*'
+      accept-encoding:
+      - gzip, deflate
+      authorization:
+      - CENSORED-OAUTH-TOKEN
+      connection:
+      - keep-alive
+      content-length:
+      - '1004'
+      content-type:
+      - application/json
+      host:
+      - cloudcode-pa.googleapis.com
+      user-agent:
+      - python-httpx/0.28.1
+    method: POST
+    uri: https://cloudcode-pa.googleapis.com/v1internal:streamGenerateContent
+  response:
+    body:
+      string: !!binary |
+        H4sIAAAAAAAC/7RUW2+iQBR+91eQeS5mBhgufaM6URJFI7RRm4ZMYaAkAmaY7dZs/O/LTRdNtg+1
+        TSA51++c8x04z38GkgQ4K/dFXjJwL9V6ZQlpHqURFaysbM+NTep8rb/IBcvFOaEz82JXg4CsiNgO
+        3PVde8pFH+wasgsT7KNGBVPGmUSrV/wupJxmrJTigksUXCQce9rLWT7+KwxKGjNxWFGR5sl1+cvi
+        1cyCJQU/NOXt1TwY2T6ZLFabYFoJgbckZDS9GKoeixev9DXdpaLJc8lk5kychxn5JNALC17TBIcQ
+        Qg2rmoUt4yq8ZO+Md6BNMx55IivH3wT/L3HK6eFbWLFMS9N7gce7r1Awtt0JWS0evWC0cH3i+t9J
+        BBoaCGEdMxnir/Bw83SVZnve/JvHavarGqqFTKz/zH4NVTcUDd1MgEfWj/ZstgnIejlzRs4P8KAj
+        RUHWres9y6ffvbW8tLjgV0kTNmeCVreL9q4TEJzGcRr6h31zoBZuMCZz2x234B1p7d16YrxMi7wO
+        S1iW5qmsDLEc72j51g0LQs4qKv00a8AUqGAZIRlpvgLvsVk9Q4hg9UlvTwmnC+tEdQLZJ2u6cZcm
+        zT7e7cDiW337YNetNI3UzYZdqGFAjCJThdCguokVMDgO/gIAAP//0uHlGqzFtkJBagkQ52QCXWKl
+        4JyRWJQDLLmBrlIITszNrdQjtfhOAwZ/cUZQamIxJEKCQ/wDlIZI8W6oZ2pgaWFkPnDFGk0LbTM9
+        S2NDUwNjoO/IqrwGaaFtomdkYm5oZmhMbqwRLrRBdb45sNwe3KW2hZ6loZEBuFImq/KiRqkNdFZu
+        QUlIfnZqnnN+KbjgMjGEOQaptENRYWgMV1GSX5KYgyJpaoKQxFUl6GCxvtgF6LzMHNQyBqUQBRae
+        ibCADnGNQI0LoEtQ/IAo7KCsWFy+oqrFhsaYFg/BChAAAAD//4oFAAAA//8DAHPdEem3DAAA
+    headers:
+      Alt-Svc:
+      - h3=":443"; ma=2592000,h3-29=":443"; ma=2592000
+      Content-Encoding:
+      - gzip
+      Content-Type:
+      - application/json; charset=UTF-8
+      Date:
+      - Fri, 14 Nov 2025 20:58:58 GMT
+      Server:
+      - ESF
+      Server-Timing:
+      - gfet4t7; dur=474
+      Transfer-Encoding:
+      - chunked
+      Vary:
+      - Origin
+      - X-Origin
+      - Referer
+      X-Content-Type-Options:
+      - nosniff
+      X-Frame-Options:
+      - SAMEORIGIN
+      X-XSS-Protection:
+      - '0'
+    status:
+      code: 200
+      message: OK
+version: 1

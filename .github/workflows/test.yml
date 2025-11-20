@@ -6,23 +6,38 @@ permissions:
   contents: read
 
 jobs:
+  pre-commit:
+    name: Pre-commit checks (linting, formatting, type checking, secrets)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install Uv and set up Python
+        uses: astral-sh/setup-uv@v4
+        with:
+          python-version: "3.10"
+      - name: Install dependencies
+        run: uv sync --locked --all-extras --dev
+      - name: Run pre-commit hooks
+        run: uv run pre-commit run --all-files
+
   test:
+    name: test on Python ${{ matrix.python-version }}
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
+        python-version: ["3.10", "3.11"]
     steps:
-    - uses: actions/checkout@v4
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v5
-      with:
-        python-version: ${{ matrix.python-version }}
-        cache: pip
-        cache-dependency-path: setup.py
-    - name: Install dependencies
-      run: |
-        pip install -e '.[test]'
-    - name: Run tests
-      run: |
-        pytest
-        python -m cogapp --check README.md
+      - uses: actions/checkout@v5
+      - name: Install Uv and set up Python ${{ matrix.python-version }}
+        uses: astral-sh/setup-uv@7
+        with:
+          python-version: ${{ matrix.python-version }}
+          activate-environment: true
+      - name: Install the project dependencies
+        run: uv sync --locked --all-extras --dev
+      - name: install the package
+        run: uv run pip install -e ".[test]"
+      - name: Run tests
+        run: uv run pytest tests
+      - name: Check README formatting
+        run: uv run python -m cogapp --check README.md

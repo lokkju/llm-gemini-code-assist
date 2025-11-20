@@ -1,0 +1,78 @@
+interactions:
+- request:
+    body: '{"model": "gemini-2.5-flash", "project": "CENSORED-PROJECT-ID", "user_prompt_id":
+      "CENSORED-USER-PROMPT-ID", "request": {"contents": [{"role": "user", "parts":
+      [{"text": "Invent a cool dog"}]}], "safetySettings": [{"category": "HARM_CATEGORY_DANGEROUS_CONTENT",
+      "threshold": "BLOCK_NONE"}, {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+      "threshold": "BLOCK_NONE"}, {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold":
+      "BLOCK_NONE"}, {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"}],
+      "generationConfig": {"response_mime_type": "application/json", "response_schema":
+      {"properties": {"name": {"title": "Name", "type": "string"}, "age": {"title":
+      "Age", "type": "integer"}, "bio": {"title": "Bio", "type": "string"}}, "required":
+      ["name", "age", "bio"], "type": "object"}}}}'
+    headers:
+      accept:
+      - '*/*'
+      accept-encoding:
+      - gzip, deflate
+      authorization:
+      - CENSORED-OAUTH-TOKEN
+      connection:
+      - keep-alive
+      content-length:
+      - '755'
+      content-type:
+      - application/json
+      host:
+      - cloudcode-pa.googleapis.com
+      user-agent:
+      - python-httpx/0.28.1
+    method: POST
+    uri: https://cloudcode-pa.googleapis.com/v1internal:streamGenerateContent
+  response:
+    body:
+      string: !!binary |
+        H4sIAAAAAAAC/6yU247aMBCG7/cpLF9DlCOnuxQiiMRJJLuCLqvIJA5rEWxkm7Z0xbvXOUABqb0A
+        kCJ5xjN/5vsj5v3rBQDIsdgxKjDsgDxWmRjRhCRIYqFy70UOVHflPaMSU3luqNKcZbkI3LIEZ7B2
+        ebVDXF6K3UpWZRL/ylXh15ICsIQUbfFSxUs4Y/EGyyWslRdoXeStKlwRVpa5IEGc0DWIGV8TsKHs
+        JwUp4+CTCCA2imjFEE/yCrEhWSaAIlUP2FPFTA8ArUhG5AFIBgQlaQqvJjxeRB/n8/EvKRQoxfIw
+        Q1K94pb3mlaZLPGa8UPOO3Bno6jrhl5/MltEA3WIgqnndQdXLuY+craqZsz7xl5/6Pf9b0PvP4WB
+        MiP/LoamN23Ddpq4rjdvygX+gXklWgwTeG/ezA8X0cUrLlqOtXvAeu64780mr0HUnYxDbxw+E8/U
+        WupnGYqucQ/dP3pO8rqmm7phtNuW87APKnKDYPRkA9paw2lYtnWvAQ9jBd781R0OF5E3nw79rv9U
+        OkszWqZhtm2F13oU73w+/YvLzEepC/dCLZgRlkjtQHSx5aDkKE1JHB52xaKbjKOeN3LHvVK8cq3c
+        f2+YC8JoXrbGW0JJ3dScepoh8VnRwphj5WVItoWYqZtO3TDqhh2aesdpdRxH0+22oevfTw2nTe0n
+        eUPPWc9R/Dty2d7PJmy6lz334C7yWYpJ8mnjqjZxrBSjBrZt004aNoIvx5c/AAAA///c1b0KwjAQ
+        AOBd8B1CFxcJ1vZqM6vgpmgHBx2ixlYaGyHp6Lt7/htRUVH82QpJuOtd8l25WPhW/4nKDTGJICOh
+        DUrMx6mmpCVKCDaRaswlkSIWaPcs2+ybqJhgjJQOnEG2fFTtKbZHJ13B9bZhvajdcX5EdYbvwmeV
+        NXvs/1D3aQhByJ5983eYDqEHHvtW0z0aMLcKteBjM/utqPuUMUDX4RW391nUMa/5wkQqFVld5RvW
+        3EOtTyy0dsBhxDpGGS7PjofH1Wsjo3whvm5gfjNpG2MZi7byfamjZt/uBqZiZXHEbvc1vPZbLw0M
+        wY3AJlF5nBi7mm4FfnGCrgAAAP//igUAAAD//wMARw0x8UENAAA=
+    headers:
+      Alt-Svc:
+      - h3=":443"; ma=2592000,h3-29=":443"; ma=2592000
+      Content-Encoding:
+      - gzip
+      Content-Type:
+      - application/json; charset=UTF-8
+      Date:
+      - Fri, 14 Nov 2025 20:58:56 GMT
+      Server:
+      - ESF
+      Server-Timing:
+      - gfet4t7; dur=1643
+      Transfer-Encoding:
+      - chunked
+      Vary:
+      - Origin
+      - X-Origin
+      - Referer
+      X-Content-Type-Options:
+      - nosniff
+      X-Frame-Options:
+      - SAMEORIGIN
+      X-XSS-Protection:
+      - '0'
+    status:
+      code: 200
+      message: OK
+version: 1

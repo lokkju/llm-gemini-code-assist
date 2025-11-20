@@ -1,0 +1,67 @@
+interactions:
+- request:
+    body: '{"model": "gemini-2.5-flash-lite", "project": "CENSORED-PROJECT-ID", "user_prompt_id":
+      "CENSORED-USER-PROMPT-ID", "request": {"contents": [{"role": "user", "parts":
+      [{"text": "Most popular search engine, just the name"}]}], "safetySettings":
+      [{"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"},
+      {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"},
+      {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"}, {"category":
+      "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"}]}}'
+    headers:
+      accept:
+      - '*/*'
+      accept-encoding:
+      - gzip, deflate
+      authorization:
+      - CENSORED-OAUTH-TOKEN
+      connection:
+      - keep-alive
+      content-length:
+      - '523'
+      content-type:
+      - application/json
+      host:
+      - cloudcode-pa.googleapis.com
+      user-agent:
+      - python-httpx/0.28.1
+    method: POST
+    uri: https://cloudcode-pa.googleapis.com/v1internal:streamGenerateContent
+  response:
+    body:
+      string: !!binary |
+        H4sIAAAAAAAC/6xSy26DMBC88xXI5xJhElLgFpWo6iEPtaiKEkWRYwyxCjbCjtq0yr/X5hVo1Vtv
+        9s7uzO7s7r4M0wQlEQVngoDA1H8VwYjFNEaSCBXbVTGzwWqcM0mY7AqacMkzTQJyHpMM3PWhApWy
+        T/aTskmT5EOzgkfOU8U1gK+93757X28yIKGMitMzQYIzzfISrdYtR129r7PBWaCULIhEakjUGwMU
+        Jc8LGfE3wh74uRrRaxV6tgwSYJcguUTZAPNvWImShOLoUlQerZaHcL6YLcPOp762CFVvNBs6NvBa
+        eYwyKi+aK5pvoqHdcjDAzazmtf9rpH/Vhb91jd7K6jN5JaWg9bpSkqsFWs7ItZIMiZOldEjDD3BJ
+        VJcRzSv3HNtxLQgtOIkcO3C9wB2PfHs6htNtW9Be9VOsC8JtukH4wpeT9UEc39fM/4y92UJfR9WO
+        Xg9uct1kjB3sx/BoQ/ve84FxNb4BAAD//4oFAAAA//8DAMO8GWQrAwAA
+    headers:
+      Alt-Svc:
+      - h3=":443"; ma=2592000,h3-29=":443"; ma=2592000
+      Content-Encoding:
+      - gzip
+      Content-Type:
+      - application/json; charset=UTF-8
+      Date:
+      - Fri, 14 Nov 2025 20:58:54 GMT
+      Server:
+      - ESF
+      Server-Timing:
+      - gfet4t7; dur=869
+      Transfer-Encoding:
+      - chunked
+      Vary:
+      - Origin
+      - X-Origin
+      - Referer
+      X-Content-Type-Options:
+      - nosniff
+      X-Frame-Options:
+      - SAMEORIGIN
+      X-XSS-Protection:
+      - '0'
+    status:
+      code: 200
+      message: OK
+version: 1
