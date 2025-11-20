@@ -17,7 +17,7 @@ llm install llm-gemini-code-assist
 Unlike the standard llm-gemini plugin, this version uses OAuth authentication with the Code Assist API. Authentication generally is automatic if you have gemini-cli installed; else, you can authenticate manually:
 
 ```bash
-llm gemini auth
+llm gemini-ca auth
 ```
 
 This will:
