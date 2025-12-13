@@ -3,7 +3,7 @@ import copy
 import json
 import logging
 import os
-from collections.abc import AsyncIterator, Callable, Generator
+from collections.abc import AsyncGenerator, Callable, Generator
 from datetime import datetime
 from pathlib import Path
 from typing import Any, ClassVar
@@ -1024,10 +1024,10 @@ class GeminiPro(_SharedGemini, llm.Model):  # type: ignore[misc]
             raise llm.ModelError(f"Error during request: {e}") from e
 
 
-class AsyncGeminiPro(_SharedGemini, llm.AsyncModel):  # type: ignore[name-defined,misc]
+class AsyncGeminiPro(_SharedGemini, llm.AsyncModel):  # type: ignore[misc]
     async def execute(
         self, prompt: Any, stream: Any, response: Any, conversation: Any
-    ) -> AsyncIterator[str]:
+    ) -> AsyncGenerator[str, None]:
         url = self.get_api_url()
         gathered = []
 
