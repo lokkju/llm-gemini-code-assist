@@ -1,5 +1,10 @@
 # llm-gemini-code-assist
 
+[![PyPI](https://img.shields.io/pypi/v/llm-gemini-code-assist.svg)](https://pypi.org/project/llm-gemini-code-assist/)
+[![Changelog](https://img.shields.io/github/v/release/lokkju/llm-gemini-code-assist?include_prereleases&label=changelog)](https://github.com/lokkju/llm-gemini-code-assist/releases)
+[![Tests](https://github.com/lokkju/llm-gemini-code-assist/workflows/Test/badge.svg)](https://github.com/lokkju/llm-gemini-code-assist/actions?query=workflow%3ATest)
+[![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](https://github.com/lokkju/llm-gemini-code-assist/blob/main/LICENSE)
+
 API access to Google's Gemini models via the Code Assist API with OAuth authentication.
 
 This is a fork of [llm-gemini](https://github.com/simonw/llm-gemini) modified to use Google's Code Assist API, which requires OAuth authentication instead of API keys.
