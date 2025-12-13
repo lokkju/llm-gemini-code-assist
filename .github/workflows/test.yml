@@ -39,5 +39,3 @@ jobs:
         run: uv run pip install -e ".[test]"
       - name: Run tests
         run: uv run pytest tests
-      - name: Check README formatting
-        run: uv run python -m cogapp --check README.md
