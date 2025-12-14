@@ -41,6 +41,7 @@ jobs:
         with:
           files: |
             dist/*
+            CHANGELOG.md
           body: ${{ steps.changelog.outputs.changes }}
 
       - name: Commit CHANGELOG.md
