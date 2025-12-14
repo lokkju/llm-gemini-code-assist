@@ -53,8 +53,6 @@ source = "uv-dynamic-versioning"
 [tool.uv-dynamic-versioning]
 fallback-version = "0.26.0"
 metadata = true
-tagged-metadata = true
-dirty = true
 style = "pep440"
 
 [tool.pytest.ini_options]
