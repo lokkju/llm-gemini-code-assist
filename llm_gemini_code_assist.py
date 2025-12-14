@@ -1,5 +1,6 @@
 import base64
 import copy
+import importlib.metadata
 import json
 import logging
 import os
@@ -20,6 +21,11 @@ from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from pydantic import Field
 
+
+try:
+    __version__ = importlib.metadata.version(__name__)
+except importlib.metadata.PackageNotFoundError:
+    __version__ = "0.26.0"  # Fallback for development mode
 
 # Type aliases
 BoolOrCallback = bool | Callable[[], bool]

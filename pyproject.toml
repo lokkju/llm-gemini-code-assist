@@ -1,6 +1,6 @@
 [project]
 name = "llm-gemini-code-assist"
-version = "0.26.3"
+dynamic = ["version"]
 description = "LLM plugin to access Google's Gemini via Code Assist API with OAuth"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -18,6 +18,7 @@ dependencies = [
     "httpx>=0.28.1",
     "pyjwt>=2.10.1",
     "google-auth-oauthlib>=1.2.2",
+    "commitizen>=4.10.1",
 ]
 
 [dependency-groups]
@@ -37,7 +38,7 @@ dev = [
 ]
 
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling", "uv-dynamic-versioning"]
 build-backend = "hatchling.build"
 
 [project.urls]
@@ -46,6 +47,16 @@ Issues = "https://github.com/lokkju/llm-gemini-code-assist/issues"
 
 [project.entry-points.llm]
 gemini_code_assist = "llm_gemini_code_assist"
+
+[tool.hatch.version]
+source = "uv-dynamic-versioning"
+
+[tool.uv-dynamic-versioning]
+fallback-version = "0.26.0"
+metadata = true
+tagged-metadata = true
+dirty = true
+style = "pep440"
 
 [tool.pytest.ini_options]
 asyncio_mode = "strict"
