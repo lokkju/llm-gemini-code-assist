@@ -52,21 +52,9 @@ source = "uv-dynamic-versioning"
 
 [tool.uv-dynamic-versioning]
 fallback-version = "0.26.0"
+metadata=true
 style = "pep440"
-format-jinja = """
-    {%- set metadata=[] %}
-    {%- if tagged_metadata.length %}
-    {%- set metadata = metadata + [tagged_metadata] %}
-    {%- endif %}
-    {%- if dirty == true %}
-    {%- set metadata = metadata + ['dirty'] %}
-    {%- endif %}
-    {%- if distance == 0 -%}
-        {{ serialize_pep440(base, stage, revision, metadata=metadata) }}
-    {%- else -%}
-        {%- set metadata = [commit] + metadata %}{{ serialize_pep440(base, stage, revision, dev=distance, metadata=metadata) }}
-    {%- endif -%}
-"""
+
 [tool.pytest.ini_options]
 asyncio_mode = "strict"
 asyncio_default_fixture_loop_scope = "function"
