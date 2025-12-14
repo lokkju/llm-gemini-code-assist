@@ -3,20 +3,13 @@ name: Release
 on:
   push:
     tags:
-      # Publish on any tag starting with a `v`, e.g., v1.2.3
-      - v*
+      # Publish only on tags matching vN.N.N
+      - v[0-9]+.[0-9]+.[0-9]+
 
 jobs:
-  pypi:
-    name: Publish to PyPI
+  build:
+    name: Build and Release
     runs-on: ubuntu-latest
-    # Environment and permissions trusted publishing.
-    environment:
-      # Create this environment in the GitHub repository under Settings -> Environments
-      name: pypi
-    permissions:
-      id-token: write
-      contents: read
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -25,21 +18,53 @@ jobs:
         with:
           enable-cache: true
           version: "0.9.9"
-      - name: "Set up Python"
+      - name: Set up Python
         uses: actions/setup-python@v6
         with:
           python-version-file: "pyproject.toml"
       - name: Build
         run: uv build
-      # Check that basic features work and we didn't miss to include crucial files
-      # - name: Smoke test (wheel)
-      #   run: uv run --isolated --no-project --with dist/*.whl tests/smoke_test.py
-      # - name: Smoke test (source distribution)
-      #   run: uv run --isolated --no-project --with dist/*.tar.gz tests/smoke_test.py
-      - name: Release
+      - name: Store the distribution packages
+        uses: actions/upload-artifact@v5
+        with:
+          name: python-package-distributions
+          path: dist/
+      - name: Update CHANGELOG
+        id: changelog
+        uses: requarks/changelog-action@v1
+        with:
+          token: ${{ github.token }}
+          tag: ${{ github.ref_name }}
+
+      - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
           files: |
             dist/*
-      - name: Publish
+          body: ${{ steps.changelog.outputs.changes }}
+
+      - name: Commit CHANGELOG.md
+        uses: stefanzweifel/git-auto-commit-action@v7
+        with:
+          branch: main
+          commit_message: "docs: update CHANGELOG.md for ${{ github.ref_name }} [skip ci]"
+          file_pattern: CHANGELOG.md
+
+  publish-to-pypi:
+    name: Publish Python 🐍 distribution 📦 to PyPI
+    needs:
+      - build
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/llm-gemini-code-assist
+    permissions:
+      id-token: write
+    steps:
+      - name: Download all the dists
+        uses: actions/download-artifact@v6
+        with:
+          name: python-package-distributions
+          path: dist/
+      - name: Publish distribution 📦 to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
