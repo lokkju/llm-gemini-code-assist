@@ -1,3 +1,16 @@
+## [v0.26.4] - 2025-12-14
+### :sparkles: New Features
+- [`3a13031`](https://github.com/lokkju/llm-gemini-code-assist/commit/3a130317df4ba4e7c59b9a7a843c7137c53dbbf4) - Configure commitizen and versioning *(commit by [@lokkju](https://github.com/lokkju))*
+
+### :bug: Bug Fixes
+- [`fcfa336`](https://github.com/lokkju/llm-gemini-code-assist/commit/fcfa3362ffe1bd8ce23b675b58bc37cc66ddff1c) - Update CI and dependency management *(commit by [@lokkju](https://github.com/lokkju))*
+- [`2069d72`](https://github.com/lokkju/llm-gemini-code-assist/commit/2069d722a9a91ee2ffb65cb65d445ffbde23c2a0) - Remove unnecessary uv-dynamic-versioning flags *(commit by [@lokkju](https://github.com/lokkju))*
+- [`16c97e6`](https://github.com/lokkju/llm-gemini-code-assist/commit/16c97e67ba27263eeba44958d78c70430f8296a5) - version format *(commit by [@lokkju](https://github.com/lokkju))*
+- [`4301820`](https://github.com/lokkju/llm-gemini-code-assist/commit/430182035f2187a8a17123ddb70e4fd6301f09ae) - version format *(commit by [@lokkju](https://github.com/lokkju))*
+- [`b2f185c`](https://github.com/lokkju/llm-gemini-code-assist/commit/b2f185c0aa0ea9268f1ed62b9ecf1a69d793b637) - version format *(commit by [@lokkju](https://github.com/lokkju))*
+- [`f65123a`](https://github.com/lokkju/llm-gemini-code-assist/commit/f65123abda49739bfaf36b6c91e525e39fc59982) - adding changelog *(commit by [@lokkju](https://github.com/lokkju))*
+
+
 ## v0.27.0 (2025-12-13)
 
 ### Feat
@@ -39,3 +52,4 @@
 - Remove unsupported tool.uv.scripts and fix syntax errors
 - Increment version in pyproject.toml and uv.lock The `pyproject.toml` file and the `uv.lock` file have been updated to reflect a new version number. - `pyproject.toml`: The `version` in the `[project]` table has been updated from `0.26.0` to `0.26.1`.
 - README updates for Gemini 2.0 (#57)
+[v0.26.4]: https://github.com/lokkju/llm-gemini-code-assist/compare/v0.26.3...v0.26.4
