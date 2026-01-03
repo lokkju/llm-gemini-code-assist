@@ -59,6 +59,20 @@ Models available via Code Assist API with the `gemini-ca/` prefix:
 
 See [gemini-cli model configs](https://github.com/google-gemini/gemini-cli/blob/main/packages/core/src/config/defaultModelConfigs.ts) for the canonical model list.
 
+### Model Latency
+
+Typical response times for a simple prompt (tested January 2026):
+
+| Model | Avg (ms) | Notes |
+|-------|----------|-------|
+| gemini-2.5-flash-lite | ~1200 | Fastest |
+| gemini-2.5-flash | ~1500 | |
+| gemini-3-flash-preview | ~1900 | Preview |
+| gemini-2.5-pro | ~4000 | High variance |
+| gemini-3-pro-preview | ~4500 | Preview |
+
+Note: Code Assist API has rate limits (~3 requests/minute). Use `scripts/profile_request.py` to benchmark.
+
 ## Features
 
 All features from llm-gemini are supported:
