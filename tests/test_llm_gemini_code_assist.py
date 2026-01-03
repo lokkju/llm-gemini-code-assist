@@ -265,6 +265,40 @@ def test_oauth_token_reading():
 
 
 @pytest.mark.usefixtures("mock_llm_user_path")
+def test_oauth_token_missing_access_token():
+    """Test that missing access_token field raises AuthenticationError with helpful message"""
+    _clean_plugin_cache()
+
+    # Credentials file exists but missing access_token field
+    _save_json_to_plugin_cache(
+        OAUTH_CREDENTIALS_FILE,
+        {
+            "refresh_token": "some_refresh_token",
+            "expiry_date": int((datetime.utcnow().timestamp() + 3600) * 1000),
+        },
+    )
+    with pytest.raises(AuthenticationError, match="access_token"):
+        get_oauth_token()
+
+
+@pytest.mark.usefixtures("mock_llm_user_path")
+def test_oauth_token_camelcase_format():
+    """Test reading OAuth token from gemini-cli camelCase format"""
+    _clean_plugin_cache()
+
+    # gemini-cli uses camelCase format
+    _save_json_to_plugin_cache(
+        OAUTH_CREDENTIALS_FILE,
+        {
+            "accessToken": "camel_case_token",
+            "refreshToken": "camel_refresh",
+            "expiresAt": int((datetime.utcnow().timestamp() + 3600) * 1000),
+        },
+    )
+    assert get_oauth_token() == "camel_case_token"
+
+
+@pytest.mark.usefixtures("mock_llm_user_path")
 def test_oauth_token_refresh_success():
     """Test successful OAuth token refresh"""
     # Create expired token

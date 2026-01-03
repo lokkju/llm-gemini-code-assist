@@ -268,18 +268,37 @@ def authenticate(
     )
 
 
+def _get_cred_field(creds_data: JsonDict, snake_key: str, camel_key: str) -> Any:
+    """Get a credential field, supporting both snake_case and camelCase formats."""
+    return creds_data.get(snake_key) or creds_data.get(camel_key)
+
+
 def credentials_from_oauth_creds_data(creds_data: JsonDict) -> Credentials:
-    # TODO: use from_authorized_user_info ?
+    """Convert credential data dict to Credentials object.
+
+    Supports both snake_case (this plugin) and camelCase (gemini-cli) formats:
+    - access_token / accessToken
+    - refresh_token / refreshToken
+    - expiry_date / expiresAt
+    - id_token / idToken
+    """
     try:
-        # Create Credentials object
-        access_token = creds_data["access_token"]
-        expiry_date = creds_data["expiry_date"]
-        expiry = datetime.fromtimestamp(expiry_date / 1000)
+        # Support both snake_case and camelCase formats
+        access_token = _get_cred_field(creds_data, "access_token", "accessToken")
+        if not access_token:
+            raise AuthenticationError(
+                "No access_token found in credentials. "
+                "Please reauthenticate using: llm gemini-ca auth"
+            )
+
+        # Handle expiry - support both formats
+        expiry_date = _get_cred_field(creds_data, "expiry_date", "expiresAt")
+        expiry = datetime.fromtimestamp(expiry_date / 1000) if expiry_date else None
 
         credentials = Credentials(
             token=access_token,
-            id_token=creds_data.get("id_token"),
-            refresh_token=creds_data.get("refresh_token"),
+            id_token=_get_cred_field(creds_data, "id_token", "idToken"),
+            refresh_token=_get_cred_field(creds_data, "refresh_token", "refreshToken"),
             token_uri="https://oauth2.googleapis.com/token",  # noqa S106
             client_id=CLIENT_ID,
             client_secret=CLIENT_SECRET,
@@ -288,8 +307,12 @@ def credentials_from_oauth_creds_data(creds_data: JsonDict) -> Credentials:
         )  # type: ignore[no-untyped-call]
         return credentials
 
+    except AuthenticationError:
+        raise
     except Exception as e:
-        raise AuthenticationError(f"Error converting creds_data to Credentials: {e}") from e
+        raise AuthenticationError(
+            f"Error converting credentials: {e}. Please reauthenticate using: llm gemini-ca auth"
+        ) from e
 
 
 def get_oauth_credentials() -> Credentials:
