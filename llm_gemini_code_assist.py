@@ -59,8 +59,10 @@ GEMINI_CODE_ASSIST_PLUGIN_SLUG = "gemini-code-assist"
 PROJECT_ID_CACHE_FILE = "project_id_cache.json"
 OAUTH_CREDENTIALS_FILE = "oauth_creds.json"
 
-# https://cloud.google.com/vertex-ai/generative-ai/docs/multimodal/ground-gemini#supported_models_2
+# Canonical source: https://github.com/google-gemini/gemini-cli/blob/main/packages/core/src/config/defaultModelConfigs.ts
 GEMINI_CODE_ASSIST_MODELS = {
+    "gemini-3-pro-preview",
+    "gemini-3-flash-preview",
     "gemini-2.5-pro",
     "gemini-2.5-flash",
     "gemini-2.5-flash-lite",

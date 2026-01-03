@@ -49,11 +49,15 @@ llm "Tell me a joke about a pelican"
 
 ## Available Models
 
-Only a limited subset of models from the standard llm-gemini plugin are available with the `gemini-ca/` prefix:
+Models available via Code Assist API with the `gemini-ca/` prefix:
 
-- `gemini-ca/gemini-2.5-pro` - Latest Gemini 2.5 Pro
-- `gemini-ca/gemini-2.5-flash` - Latest Gemini 2.5 Flash
+- `gemini-ca/gemini-3-pro-preview` - Gemini 3 Pro (preview)
+- `gemini-ca/gemini-3-flash-preview` - Gemini 3 Flash (preview)
+- `gemini-ca/gemini-2.5-pro` - Gemini 2.5 Pro
+- `gemini-ca/gemini-2.5-flash` - Gemini 2.5 Flash
 - `gemini-ca/gemini-2.5-flash-lite` - Gemini 2.5 Flash Lite
+
+See [gemini-cli model configs](https://github.com/google-gemini/gemini-cli/blob/main/packages/core/src/config/defaultModelConfigs.ts) for the canonical model list.
 
 ## Features
 
@@ -129,6 +133,21 @@ The pre-commit hooks will automatically run linting, formatting, type checking, 
 ```bash
 uv run pre-commit run --all-files
 ```
+
+### Releasing
+
+Releases are tag-driven and automated via GitHub Actions.
+
+```bash
+# 1. Ensure tests pass
+uv run pytest
+
+# 2. Create and push a version tag (triggers release workflow)
+git tag v0.27.0
+git push origin v0.27.0
+```
+
+This will automatically build the package, create a GitHub Release with changelog, and publish to PyPI.
 
 ## Differences from llm-gemini
 
