@@ -1,3 +1,13 @@
+## [v0.28.0] - 2026-01-03
+### :sparkles: New Features
+- [`0bbd73d`](https://github.com/lokkju/llm-gemini-code-assist/commit/0bbd73d2613b70a26268e7a7c495acf98cfc1baf) - add Gemini 3 models and model sync tool *(commit by [@lokkju](https://github.com/lokkju))*
+- [`f7582b8`](https://github.com/lokkju/llm-gemini-code-assist/commit/f7582b8a4d1c4a1570b5226798d3a389af1867d1) - add confirmation prompt before launching browser for OAuth *(commit by [@lokkju](https://github.com/lokkju))*
+
+### :bug: Bug Fixes
+- [`88aec84`](https://github.com/lokkju/llm-gemini-code-assist/commit/88aec84201085ffc0285806efff90f2b1ca23816) - support camelCase credential format from gemini-cli *(commit by [@lokkju](https://github.com/lokkju))*
+- [`c0142fa`](https://github.com/lokkju/llm-gemini-code-assist/commit/c0142fa1e40898f138f3f9680a28ef9d8e395fc8) - only prompt about gemini-cli creds if file exists *(commit by [@lokkju](https://github.com/lokkju))*
+
+
 ## [v0.26.4] - 2025-12-14
 ### :sparkles: New Features
 - [`3a13031`](https://github.com/lokkju/llm-gemini-code-assist/commit/3a130317df4ba4e7c59b9a7a843c7137c53dbbf4) - Configure commitizen and versioning *(commit by [@lokkju](https://github.com/lokkju))*
@@ -53,3 +63,4 @@
 - Increment version in pyproject.toml and uv.lock The `pyproject.toml` file and the `uv.lock` file have been updated to reflect a new version number. - `pyproject.toml`: The `version` in the `[project]` table has been updated from `0.26.0` to `0.26.1`.
 - README updates for Gemini 2.0 (#57)
 [v0.26.4]: https://github.com/lokkju/llm-gemini-code-assist/compare/v0.26.3...v0.26.4
+[v0.28.0]: https://github.com/lokkju/llm-gemini-code-assist/compare/v0.26.4...v0.28.0
