@@ -25,7 +25,7 @@ from pydantic import Field
 try:
     __version__ = importlib.metadata.version(__name__)
 except importlib.metadata.PackageNotFoundError:
-    __version__ = "0.26.0"  # Fallback for development mode
+    __version__ = "0.28.0"  # Fallback for development mode
 
 # Type aliases
 BoolOrCallback = bool | Callable[[], bool]

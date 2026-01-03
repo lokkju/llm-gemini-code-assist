@@ -51,7 +51,7 @@ gemini_code_assist = "llm_gemini_code_assist"
 source = "uv-dynamic-versioning"
 
 [tool.uv-dynamic-versioning]
-fallback-version = "0.26.0"
+fallback-version = "0.28.0"
 style = "pep440"
 
 [tool.pytest.ini_options]
