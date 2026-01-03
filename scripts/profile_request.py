@@ -12,35 +12,42 @@ import statistics
 import sys
 import time
 from pathlib import Path
+from typing import Any
+
 
 # Add parent to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 
-def time_prompt(model, prompt_text: str, runs: int = 3, delay: float = 0.5) -> list[float]:
+def time_prompt(model: Any, prompt_text: str, runs: int = 3, delay: float = 0.5) -> list[float]:
     """Time multiple runs of a prompt and return list of times in ms."""
     times = []
     for i in range(runs):
         start = time.perf_counter()
         response = model.prompt(prompt_text)
-        text = str(response)  # Force execution
+        _ = str(response)  # Force execution
         elapsed = (time.perf_counter() - start) * 1000
         times.append(elapsed)
-        print(f"    Run {i+1}: {elapsed:.0f}ms")
+        print(f"    Run {i + 1}: {elapsed:.0f}ms")
         if i < runs - 1:
             time.sleep(delay)
     return times
 
 
-def main():
+def main() -> int:
     parser = argparse.ArgumentParser(description="Profile Gemini Code Assist model latencies")
     parser.add_argument("model", nargs="?", help="Specific model to test (e.g., gemini-2.5-flash)")
     parser.add_argument("--runs", type=int, default=3, help="Number of runs per model (default: 3)")
-    parser.add_argument("--delay", type=float, default=10.0, help="Delay between models in seconds (default: 10)")
-    parser.add_argument("--run-delay", type=float, default=0.5, help="Delay between runs in seconds (default: 0.5)")
+    parser.add_argument(
+        "--delay", type=float, default=10.0, help="Delay between models in seconds (default: 10)"
+    )
+    parser.add_argument(
+        "--run-delay", type=float, default=0.5, help="Delay between runs in seconds (default: 0.5)"
+    )
     args = parser.parse_args()
 
     import llm
+
     from llm_gemini_code_assist import GEMINI_CODE_ASSIST_MODELS
 
     print("=== Gemini Code Assist Model Latency Comparison ===\n")
@@ -53,7 +60,7 @@ def main():
     else:
         models_to_test = sorted(GEMINI_CODE_ASSIST_MODELS)
 
-    print(f"Prompt: \"{prompt_text}\"")
+    print(f'Prompt: "{prompt_text}"')
     print(f"Runs per model: {args.runs}")
     print(f"Delay between models: {args.delay}s\n")
 
@@ -99,7 +106,10 @@ def main():
         print(f"{'Model':<30} {'Avg (ms)':<12} {'Min':<10} {'Max':<10}")
         print("-" * 60)
 
-        for model_id in sorted(results.keys(), key=lambda x: results[x].get("avg", float("inf"))):
+        for model_id in sorted(
+            results.keys(),
+            key=lambda x: float(results[x].get("avg", float("inf"))),  # type: ignore[arg-type]
+        ):
             r = results[model_id]
             if "error" in r:
                 print(f"{model_id:<30} {'ERROR':<12}")
