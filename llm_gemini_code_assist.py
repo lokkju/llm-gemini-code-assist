@@ -1126,7 +1126,12 @@ def register_commands(cli: Any) -> None:
                 default=True,
             )
 
-        use_oauth: bool = True
+        def use_oauth() -> bool:
+            return click.confirm(
+                "This will open your browser for Google OAuth authentication. Continue?",
+                default=True,
+            )
+
         authenticate(reauthenticate, use_gemini_cli_creds, use_oauth)
         click.echo("\n✓ Authentication successful!")
 
