@@ -1116,9 +1116,13 @@ def register_commands(cli: Any) -> None:
             )
 
         def use_gemini_cli_creds() -> bool:
+            # Only prompt if gemini-cli credentials file actually exists
+            gemini_cli_oauth_path = Path.home() / ".gemini" / OAUTH_CREDENTIALS_FILE
+            if not gemini_cli_oauth_path.exists():
+                return False
             return click.confirm(
                 "Found existing gemini-cli OAuth credentials. "
-                "Do you want to use attempt to use these to authenticate?",
+                "Do you want to attempt to use these to authenticate?",
                 default=True,
             )
 
