@@ -1,3 +1,8 @@
+## [v0.28.1] - 2026-01-04
+### :bug: Bug Fixes
+- [`ac3e568`](https://github.com/lokkju/llm-gemini-code-assist/commit/ac3e568dd3db7bfb596a533d4764335e97f7ecb9) - add type annotations to profile_request.py for pre-commit *(commit by [@lokkju](https://github.com/lokkju))*
+
+
 ## [v0.28.0] - 2026-01-03
 ### :sparkles: New Features
 - [`0bbd73d`](https://github.com/lokkju/llm-gemini-code-assist/commit/0bbd73d2613b70a26268e7a7c495acf98cfc1baf) - add Gemini 3 models and model sync tool *(commit by [@lokkju](https://github.com/lokkju))*
@@ -64,3 +69,4 @@
 - README updates for Gemini 2.0 (#57)
 [v0.26.4]: https://github.com/lokkju/llm-gemini-code-assist/compare/v0.26.3...v0.26.4
 [v0.28.0]: https://github.com/lokkju/llm-gemini-code-assist/compare/v0.26.4...v0.28.0
+[v0.28.1]: https://github.com/lokkju/llm-gemini-code-assist/compare/v0.28.0...v0.28.1
